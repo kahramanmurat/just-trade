@@ -41,6 +41,7 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   subscription Subscription?
+  watchlists   Watchlist[]
 
   @@index([clerkId], name: "idx_users_clerk_id")
   @@map("users")
@@ -62,4 +63,37 @@ model Subscription {
   @@index([userId], name: "idx_subscriptions_user_id")
   @@index([stripeCustomerId], name: "idx_subscriptions_stripe_customer_id")
   @@map("subscriptions")
+}
+
+// ---------------------------------------------------------------------------
+// Watchlists
+// ---------------------------------------------------------------------------
+
+model Watchlist {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items WatchlistItem[]
+
+  @@unique([userId, isDefault], name: "uq_watchlists_user_default")
+  @@index([userId], name: "idx_watchlists_user_id")
+  @@map("watchlists")
+}
+
+model WatchlistItem {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  watchlistId  String @map("watchlist_id") @db.Uuid
+  symbol       String @db.VarChar(30)
+  displayOrder Int    @default(0) @map("display_order")
+
+  watchlist Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistId, symbol], name: "uq_watchlist_items_symbol")
+  @@index([watchlistId], name: "idx_watchlist_items_watchlist_id")
+  @@index([symbol], name: "idx_watchlist_items_symbol")
+  @@map("watchlist_items")
 }

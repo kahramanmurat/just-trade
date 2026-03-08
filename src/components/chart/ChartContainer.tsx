@@ -7,9 +7,11 @@ import {
   CandlestickSeries,
   CrosshairMode,
   ColorType,
+  LineStyle,
   type IChartApi,
   type ISeriesApi,
   type CandlestickData,
+  type IPriceLine,
   type UTCTimestamp,
 } from 'lightweight-charts'
 import { useChartStore } from '@/lib/store/chartStore'
@@ -60,11 +62,30 @@ export default function ChartContainer() {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  const priceLinesRef = useRef<IPriceLine[]>([])
+  const activeToolRef = useRef<string>('select')
 
-  const { symbol, timeframe } = useChartStore()
+  const { symbol, timeframe, activeTool, setActiveTool } = useChartStore()
   const [legend, setLegend] = useState<OhlcvLegend | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Keep ref in sync so chart click handler sees current tool
+  useEffect(() => {
+    activeToolRef.current = activeTool
+
+    // Eraser: remove all price lines and reset to select
+    if (activeTool === 'eraser') {
+      const series = seriesRef.current
+      if (series) {
+        for (const line of priceLinesRef.current) {
+          series.removePriceLine(line)
+        }
+        priceLinesRef.current = []
+      }
+      setActiveTool('select')
+    }
+  }, [activeTool, setActiveTool])
 
   // Fetch OHLCV data from API
   const fetchOhlcv = useCallback(
@@ -204,6 +225,25 @@ export default function ChartContainer() {
         setLoading(false)
       })
 
+    // Horizontal line drawing on click
+    chart.subscribeClick((param) => {
+      if (activeToolRef.current !== 'hline') return
+      if (!param.point) return
+
+      const price = series.coordinateToPrice(param.point.y)
+      if (price === null) return
+
+      const priceLine = series.createPriceLine({
+        price,
+        color: C.up,
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: '',
+      })
+      priceLinesRef.current.push(priceLine)
+    })
+
     // Resize observer
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -219,6 +259,7 @@ export default function ChartContainer() {
       chart.remove()
       chartRef.current = null
       seriesRef.current = null
+      priceLinesRef.current = []
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, timeframe])
@@ -269,7 +310,12 @@ export default function ChartContainer() {
       )}
 
       {/* Chart canvas — lightweight-charts mounts here */}
-      <div ref={containerRef} className="absolute inset-0" />
+      <div
+        ref={containerRef}
+        className={['absolute inset-0', activeTool === 'hline' ? 'cursor-crosshair' : ''].join(
+          ' '
+        )}
+      />
     </div>
   )
 }

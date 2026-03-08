@@ -17,6 +17,22 @@ export type OhlcvResponse = {
   candles: OhlcvCandle[]
 }
 
+// Watchlist item — returned by GET /api/watchlists
+export type WatchlistItemResponse = {
+  id: string
+  symbol: string
+  name: string
+  displayOrder: number
+}
+
+// GET /api/watchlists response
+export type WatchlistResponse = {
+  id: string
+  name: string
+  isDefault: boolean
+  items: WatchlistItemResponse[]
+}
+
 // Standard API error response
 export type ApiError = {
   error: string

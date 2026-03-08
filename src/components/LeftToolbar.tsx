@@ -8,6 +8,7 @@ type ToolConfig = {
   label: string
   shortcut: string
   icon: React.ReactNode
+  implemented?: boolean
 }
 
 const TOOLS: ToolConfig[] = [
@@ -15,6 +16,7 @@ const TOOLS: ToolConfig[] = [
     tool: 'select',
     label: 'Select',
     shortcut: 'Esc',
+    implemented: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
         <path
@@ -29,7 +31,7 @@ const TOOLS: ToolConfig[] = [
   },
   {
     tool: 'trendline',
-    label: 'Trend Line',
+    label: 'Trend Line — coming soon',
     shortcut: 'Alt+T',
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
@@ -43,6 +45,7 @@ const TOOLS: ToolConfig[] = [
     tool: 'hline',
     label: 'Horizontal Line',
     shortcut: 'Alt+H',
+    implemented: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
         <path
@@ -58,7 +61,7 @@ const TOOLS: ToolConfig[] = [
   },
   {
     tool: 'fibonacci',
-    label: 'Fibonacci',
+    label: 'Fibonacci — coming soon',
     shortcut: 'Alt+F',
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
@@ -75,7 +78,7 @@ const TOOLS: ToolConfig[] = [
   },
   {
     tool: 'rectangle',
-    label: 'Rectangle',
+    label: 'Rectangle — coming soon',
     shortcut: 'Alt+R',
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
@@ -93,7 +96,7 @@ const TOOLS: ToolConfig[] = [
   },
   {
     tool: 'text',
-    label: 'Text Label',
+    label: 'Text Label — coming soon',
     shortcut: 'Alt+L',
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
@@ -109,7 +112,7 @@ const TOOLS: ToolConfig[] = [
   },
   {
     tool: 'magnet',
-    label: 'Snap to OHLC',
+    label: 'Snap to OHLC — coming soon',
     shortcut: 'Alt+M',
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
@@ -125,8 +128,9 @@ const TOOLS: ToolConfig[] = [
   },
   {
     tool: 'eraser',
-    label: 'Delete Drawing',
+    label: 'Delete All Lines',
     shortcut: 'Del',
+    implemented: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
         <path
@@ -150,39 +154,47 @@ export default function LeftToolbar() {
       className="hidden md:flex flex-col items-center w-10 shrink-0 bg-[var(--color-surface)] border-r border-[var(--color-border)] py-1.5 gap-px"
       aria-label="Drawing tools"
     >
-      {TOOLS.map(({ tool, label, shortcut, icon }) => (
-        <div key={tool} className="relative w-full flex justify-center">
-          <button
-            onClick={() => setActiveTool(tool)}
-            onMouseEnter={() => setHovered(tool)}
-            onMouseLeave={() => setHovered(null)}
-            className={[
-              'w-8 h-8 flex items-center justify-center rounded transition-colors',
-              activeTool === tool
-                ? 'bg-[var(--color-accent)] text-white'
-                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]',
-            ].join(' ')}
-            aria-label={`${label} — ${shortcut}`}
-            aria-pressed={activeTool === tool}
-          >
-            {icon}
-          </button>
-
-          {hovered === tool && (
-            <div
-              className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 pointer-events-none"
-              role="tooltip"
+      {TOOLS.map(({ tool, label, shortcut, icon, implemented }) => {
+        const disabled = !implemented
+        return (
+          <div key={tool} className="relative w-full flex justify-center">
+            <button
+              onClick={() => !disabled && setActiveTool(tool)}
+              onMouseEnter={() => setHovered(tool)}
+              onMouseLeave={() => setHovered(null)}
+              className={[
+                'w-8 h-8 flex items-center justify-center rounded transition-colors',
+                disabled
+                  ? 'text-[var(--color-text-muted)] opacity-40 cursor-not-allowed'
+                  : activeTool === tool
+                    ? 'bg-[var(--color-accent)] text-white'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]',
+              ].join(' ')}
+              aria-label={`${label} — ${shortcut}`}
+              aria-pressed={!disabled && activeTool === tool}
+              aria-disabled={disabled}
             >
-              <div className="bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded px-2.5 py-1.5 shadow-lg whitespace-nowrap">
-                <p className="text-[var(--color-text)] text-xs font-medium leading-tight">{label}</p>
-                <p className="text-[var(--color-text-secondary)] text-[10px] font-mono mt-0.5">
-                  {shortcut}
-                </p>
+              {icon}
+            </button>
+
+            {hovered === tool && (
+              <div
+                className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 pointer-events-none"
+                role="tooltip"
+              >
+                <div className="bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded px-2.5 py-1.5 shadow-lg whitespace-nowrap">
+                  <p className="text-[var(--color-text)] text-xs font-medium leading-tight">
+                    {label}
+                  </p>
+                  <p className="text-[var(--color-text-secondary)] text-[10px] font-mono mt-0.5">
+                    {shortcut}
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      ))}
+            )}
+          </div>
+        )
+      })}
     </aside>
   )
 }

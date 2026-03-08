@@ -1,23 +1,14 @@
 'use client'
 
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useChartStore, type RightPanelTab } from '@/lib/store/chartStore'
+import { SYMBOLS } from '@/lib/api/symbols'
+import type { WatchlistResponse, WatchlistItemResponse } from '@/lib/api/types'
 
 const TABS: { id: RightPanelTab; label: string }[] = [
   { id: 'watchlist', label: 'Watchlist' },
   { id: 'alerts', label: 'Alerts' },
   { id: 'indicators', label: 'Indicators' },
-]
-
-// --- Placeholder data (replaced by real API in Epic 2 / Epic 5) ---
-
-const WATCHLIST_ITEMS = [
-  { symbol: 'AAPL', name: 'Apple Inc.', price: '182.63', pct: '+0.68%', up: true },
-  { symbol: 'TSLA', name: 'Tesla, Inc.', price: '248.50', pct: '-1.27%', up: false },
-  { symbol: 'NVDA', name: 'NVIDIA Corp.', price: '875.39', pct: '+1.44%', up: true },
-  { symbol: 'MSFT', name: 'Microsoft Corp.', price: '415.26', pct: '+0.70%', up: true },
-  { symbol: 'AMZN', name: 'Amazon.com, Inc.', price: '196.83', pct: '-0.47%', up: false },
-  { symbol: 'GOOGL', name: 'Alphabet Inc.', price: '175.12', pct: '+0.23%', up: true },
-  { symbol: 'META', name: 'Meta Platforms', price: '521.60', pct: '+2.11%', up: true },
 ]
 
 const ALERT_ITEMS = [
@@ -33,8 +24,153 @@ const INDICATOR_ITEMS = [
 
 // --- Tab content components ---
 
+function AddSymbolDropdown({
+  existingSymbols,
+  onAdd,
+}: {
+  existingSymbols: string[]
+  onAdd: (symbol: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const available = SYMBOLS.filter((s) => !existingSymbols.includes(s.symbol))
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setAddError(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const handleAdd = async (symbol: string) => {
+    setAddError(null)
+    try {
+      const res = await fetch('/api/watchlists/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Failed to add' }))
+        if (body.code === 'DUPLICATE') {
+          setAddError('Already in watchlist')
+        } else {
+          setAddError(body.error ?? `HTTP ${res.status}`)
+        }
+        return
+      }
+      setOpen(false)
+      onAdd(symbol)
+    } catch {
+      setAddError('Network error')
+    }
+  }
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        onClick={() => {
+          setOpen(!open)
+          setAddError(null)
+        }}
+        className="text-[var(--color-accent)] text-xs hover:text-[var(--color-text)] transition-colors"
+        aria-label="Add symbol to watchlist"
+        aria-expanded={open}
+      >
+        + Add
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-30 w-52 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded shadow-lg overflow-hidden">
+          {addError && (
+            <div className="px-3 py-1.5 bg-[var(--color-down)]/10 border-b border-[var(--color-border)]">
+              <p className="text-[var(--color-down)] text-[10px] font-mono">{addError}</p>
+            </div>
+          )}
+          {available.length === 0 ? (
+            <div className="px-3 py-3">
+              <p className="text-[var(--color-text-muted)] text-xs text-center">
+                All symbols added
+              </p>
+            </div>
+          ) : (
+            <ul className="max-h-48 overflow-y-auto" role="listbox" aria-label="Available symbols">
+              {available.map((s) => (
+                <li key={s.symbol}>
+                  <button
+                    onClick={() => handleAdd(s.symbol)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--color-surface)] transition-colors"
+                    role="option"
+                    aria-selected={false}
+                  >
+                    <span className="text-[var(--color-text)] text-xs font-mono font-medium">
+                      {s.symbol}
+                    </span>
+                    <span className="text-[var(--color-text-secondary)] text-[10px] truncate">
+                      {s.name}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function WatchlistTab() {
   const { symbol: activeSymbol, setSymbol } = useChartStore()
+  const [items, setItems] = useState<WatchlistItemResponse[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchWatchlist = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/watchlists', { cache: 'no-store' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      const data: WatchlistResponse = await res.json()
+      setItems(data.items)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load watchlist')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchWatchlist()
+  }, [fetchWatchlist])
+
+  const removeSymbol = async (symbol: string) => {
+    setItems((prev) => prev.filter((item) => item.symbol !== symbol))
+    try {
+      const res = await fetch('/api/watchlists/items', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol }),
+      })
+      if (!res.ok) {
+        fetchWatchlist(true)
+      }
+    } catch {
+      fetchWatchlist(true)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -42,50 +178,70 @@ function WatchlistTab() {
         <span className="text-[var(--color-text-secondary)] text-[10px] font-medium uppercase tracking-widest">
           Default
         </span>
-        <button
-          className="text-[var(--color-accent)] text-xs hover:text-[var(--color-text)] transition-colors"
-          aria-label="Create new watchlist"
-        >
-          + New
-        </button>
+        <AddSymbolDropdown
+          existingSymbols={items.map((i) => i.symbol)}
+          onAdd={() => fetchWatchlist(true)}
+        />
       </div>
 
-      <ul className="flex-1 overflow-y-auto" role="list" aria-label="Watchlist items">
-        {WATCHLIST_ITEMS.map(({ symbol, name, price, pct, up }) => {
-          const isActive = symbol === activeSymbol
-          return (
-            <li key={symbol}>
-              <button
-                onClick={() => setSymbol(symbol)}
-                className={[
-                  'w-full flex items-center gap-2 px-3 py-2.5 transition-colors text-left border-b border-[var(--color-border-subtle)]',
-                  isActive
-                    ? 'bg-[var(--color-accent)]/10 border-l-2 border-l-[var(--color-accent)]'
-                    : 'hover:bg-[var(--color-surface-2)]',
-                ].join(' ')}
-                aria-label={`${symbol} ${name}: ${price}, ${pct}`}
-                aria-current={isActive ? 'true' : undefined}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-[var(--color-text)] text-xs font-mono font-medium">{symbol}</p>
-                  <p className="text-[var(--color-text-secondary)] text-[10px] truncate">{name}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[var(--color-text)] text-xs font-mono tabular-nums">{price}</p>
-                  <p
-                    className={[
-                      'text-[10px] font-mono tabular-nums',
-                      up ? 'text-[var(--color-up)]' : 'text-[var(--color-down)]',
-                    ].join(' ')}
+      {loading && (
+        <div className="flex items-center justify-center h-24">
+          <span className="text-[var(--color-text-muted)] text-xs font-mono">Loading...</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-center justify-center h-24 px-3">
+          <span className="text-[var(--color-down)] text-xs font-mono text-center">{error}</span>
+        </div>
+      )}
+
+      {!loading && !error && items.length === 0 && (
+        <div className="flex items-center justify-center h-24">
+          <p className="text-[var(--color-text-muted)] text-xs">Watchlist is empty</p>
+        </div>
+      )}
+
+      {!loading && !error && items.length > 0 && (
+        <ul className="flex-1 overflow-y-auto" role="list" aria-label="Watchlist items">
+          {items.map(({ symbol, name }) => {
+            const isActive = symbol === activeSymbol
+            return (
+              <li key={symbol}>
+                <div
+                  className={[
+                    'group w-full flex items-center gap-2 px-3 py-2.5 transition-colors border-b border-[var(--color-border-subtle)]',
+                    isActive
+                      ? 'bg-[var(--color-accent)]/10 border-l-2 border-l-[var(--color-accent)]'
+                      : 'hover:bg-[var(--color-surface-2)]',
+                  ].join(' ')}
+                >
+                  <button
+                    onClick={() => setSymbol(symbol)}
+                    className="flex-1 min-w-0 text-left"
+                    aria-label={`Select ${symbol} ${name}`}
+                    aria-current={isActive ? 'true' : undefined}
                   >
-                    {pct}
-                  </p>
+                    <p className="text-[var(--color-text)] text-xs font-mono font-medium">
+                      {symbol}
+                    </p>
+                    <p className="text-[var(--color-text-secondary)] text-[10px] truncate">
+                      {name}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => removeSymbol(symbol)}
+                    className="opacity-0 group-hover:opacity-100 text-[var(--color-text-muted)] hover:text-[var(--color-down)] transition-all text-sm leading-none shrink-0"
+                    aria-label={`Remove ${symbol} from watchlist`}
+                  >
+                    ×
+                  </button>
                 </div>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </div>
   )
 }
