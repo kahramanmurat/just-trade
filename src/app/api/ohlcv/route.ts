@@ -1,10 +1,11 @@
 // GET /api/ohlcv?symbol=AAPL&timeframe=1D
-// Returns mock OHLCV candlestick data. Replaced by Polygon.io proxy + Redis cache in Epic 6.
+// Returns OHLCV candlestick data via provider abstraction (Polygon → mock fallback).
+// Responses are cached in Redis when Upstash is configured.
 
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { generateOhlcv } from '@/lib/chart/generateOhlcv'
+import { fetchOhlcv } from '@/lib/api/ohlcv'
 import type { OhlcvResponse, ApiError } from '@/lib/api/types'
 
 const VALID_TIMEFRAMES = ['1m', '5m', '15m', '1h', '4h', '1D', '1W', '1M'] as const
@@ -36,7 +37,6 @@ export async function GET(request: Request) {
   }
 
   // Parse and validate query params
-  // searchParams.get() returns null when absent; convert to undefined for Zod
   const { searchParams } = new URL(request.url)
   const parsed = querySchema.safeParse({
     symbol: searchParams.get('symbol') ?? undefined,
@@ -54,12 +54,26 @@ export async function GET(request: Request) {
 
   const { symbol, timeframe, count } = parsed.data
 
-  // Generate mock candles (replaced by Polygon.io fetch + Redis cache later)
-  const candles = generateOhlcv(symbol, timeframe, count)
+  try {
+    const result = await fetchOhlcv(symbol, timeframe, count)
 
-  return NextResponse.json<OhlcvResponse>({
-    symbol,
-    timeframe,
-    candles,
-  })
+    const response: OhlcvResponse = {
+      symbol,
+      timeframe,
+      candles: result.candles,
+    }
+
+    return NextResponse.json<OhlcvResponse>(response, {
+      headers: {
+        'X-Data-Source': result.source,
+        'X-Cache-Hit': result.cached ? 'true' : 'false',
+      },
+    })
+  } catch (err) {
+    console.error('[api/ohlcv] fetch failed:', err instanceof Error ? err.message : err)
+    return NextResponse.json<ApiError>(
+      { error: 'Failed to fetch market data', code: 'PROVIDER_ERROR' },
+      { status: 502 }
+    )
+  }
 }
