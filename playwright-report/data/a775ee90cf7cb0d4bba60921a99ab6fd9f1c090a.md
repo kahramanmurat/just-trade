@@ -1,0 +1,107 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic "JustTrade" [ref=e4]:
+        - generic [ref=e6]: JT
+        - generic [ref=e7]: JustTrade
+      - 'button "Active symbol: AAPL. Click to search." [ref=e9]':
+        - generic [ref=e10]: AAPL
+        - generic [ref=e11]: · NASDAQ
+        - img [ref=e12]
+      - navigation "Timeframe selector" [ref=e15]:
+        - button "Set timeframe to 1m" [ref=e16]: 1m
+        - button "Set timeframe to 5m" [ref=e17]: 5m
+        - button "Set timeframe to 15m" [ref=e18]: 15m
+        - button "Set timeframe to 1h" [ref=e19]: 1h
+        - button "Set timeframe to 4h" [ref=e20]: 4h
+        - button "Set timeframe to 1D" [pressed] [ref=e21]: 1D
+        - button "Set timeframe to 1W" [ref=e22]: 1W
+        - button "Set timeframe to 1M" [ref=e23]: 1M
+      - 'generic "Connection: Live" [ref=e25]':
+        - generic [ref=e27]: Live
+      - generic [ref=e28]:
+        - button "Open AI assistant" [ref=e29]:
+          - img [ref=e30]
+          - generic [ref=e32]: AI
+        - button "Open indicators picker" [ref=e33]:
+          - img [ref=e34]
+          - generic [ref=e37]: Indicators
+        - button "Save or load chart layout" [ref=e39]:
+          - img [ref=e40]
+          - generic [ref=e43]: Layouts
+        - button "Upgrade to Pro" [ref=e44]: Upgrade
+        - button "Toggle right panel" [ref=e46]:
+          - img [ref=e47]
+        - button "Open user menu" [ref=e51] [cursor=pointer]:
+          - img "test test's logo" [ref=e54]
+    - generic [ref=e56]:
+      - complementary "Drawing tools" [ref=e57]:
+        - button "Select — Esc" [pressed] [ref=e59]:
+          - img [ref=e60]
+        - button "Trend Line — Alt+T" [ref=e63]:
+          - img [ref=e64]
+        - button "Horizontal Line — Alt+H" [ref=e69]:
+          - img [ref=e70]
+        - button "Fibonacci Retracement — Alt+F" [ref=e73]:
+          - img [ref=e74]
+        - button "Rectangle — Alt+R" [ref=e77]:
+          - img [ref=e78]
+        - button "Text Label — Alt+L" [ref=e81]:
+          - img [ref=e82]
+        - button "Snap to OHLC — Alt+M" [ref=e85]:
+          - img [ref=e86]
+        - button "Delete All Lines — Del" [ref=e89]:
+          - img [ref=e90]
+      - generic [ref=e92]:
+        - generic "OHLCV legend":
+          - generic: AAPL · 1D
+          - generic:
+            - generic:
+              - generic: O
+              - text: "272.86"
+            - generic:
+              - generic: H
+              - text: "273.88"
+            - generic:
+              - generic: L
+              - text: "270.50"
+            - generic:
+              - generic: C
+              - text: "270.97"
+            - generic: Vol 36.57M
+        - table [ref=e95]:
+          - row [ref=e96]:
+            - cell
+            - cell [ref=e97]:
+              - link "Charting by TradingView" [ref=e101] [cursor=pointer]:
+                - /url: https://www.tradingview.com/?utm_medium=lwc-link&utm_campaign=lwc-chart&utm_source=localhost/dashboard
+                - img [ref=e102]
+            - cell [ref=e106]
+          - row [ref=e110]:
+            - cell
+            - cell [ref=e111]
+            - cell [ref=e115]
+      - complementary "Right panel" [ref=e118]:
+        - tablist "Right panel tabs" [ref=e119]:
+          - tab "Watchlist" [active] [selected] [ref=e120]
+          - tab "Alerts" [ref=e121]
+          - tab "Indicators" [ref=e122]
+        - tabpanel "watchlist" [ref=e123]:
+          - generic [ref=e124]:
+            - generic [ref=e125]:
+              - generic [ref=e126]: Default
+              - button "Add symbol to watchlist" [ref=e128]: + Add
+            - list "Watchlist items" [ref=e129]:
+              - listitem [ref=e130]:
+                - generic [ref=e131]:
+                  - button "Select TSLA Tesla, Inc." [ref=e132]:
+                    - paragraph [ref=e133]: TSLA
+                    - paragraph [ref=e134]: Tesla, Inc.
+                  - button "Remove TSLA from watchlist" [ref=e135]: ×
+  - button "Open Next.js Dev Tools" [ref=e141] [cursor=pointer]:
+    - img [ref=e142]
+  - alert [ref=e145]
+```

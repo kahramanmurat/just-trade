@@ -311,3 +311,5 @@ pnpm prisma generate  # Regenerate Prisma client
 | `/docs/NON_FUNCTIONAL_REQUIREMENTS.md` | Performance, reliability, security, accessibility targets |
 | `/docs/QA_ACCEPTANCE.md` | Acceptance criteria per feature; sign-off template |
 | `/AGENTS.md` | Understanding agent roles and file ownership |
+
+When context exceeds 80%, stop and summarize the session into PROJECT_STATE.md before continuing in a new session.

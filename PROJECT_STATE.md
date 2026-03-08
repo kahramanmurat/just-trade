@@ -513,6 +513,38 @@ pnpm dev
 - Jobs: install (pnpm + corepack), lint, typecheck, unit tests with coverage, production build
 - Mock env vars for CI (Clerk, Stripe, DB, Anthropic)
 
+## Release Readiness ✅
+
+> Completed: 2026-03-08
+
+#### Mock Market Data for E2E
+- `playwright/fixtures/mock-data.ts` — Playwright auto-fixture intercepting `/api/ohlcv`, `/api/watchlists` (GET), `/api/subscription` (GET)
+- Deterministic OHLCV candle generator using sine-wave pattern (no external API calls during E2E)
+- Stable mock watchlist (AAPL, TSLA, NVDA, MSFT) and free plan subscription response
+- All 7 authenticated E2E spec files updated to use mock fixture (`auth.spec.ts` unchanged)
+- Eliminates Polygon.io 429 rate limits and makes E2E tests fully offline-capable
+
+#### Accessibility Audits
+- `playwright/a11y/dashboard.spec.ts` — 3 tests using @axe-core/playwright (WCAG 2.1 AA)
+- Audits: sign-in page (fresh context, no auth), dashboard (authenticated, excludes Clerk + canvas), symbol search modal (scoped to dialog)
+- Zero critical/serious violations required
+- Playwright `a11y` project updated with auth state and setup dependency
+
+#### Visual Regression Baselines
+- `playwright/visual/dashboard.spec.ts` — 4 screenshot comparison tests
+- Baselines: dashboard at 1440x900, dashboard at 1024x768, symbol search modal, watchlist panel
+- 0.1% pixel diff threshold (`maxDiffPixelRatio: 0.001`)
+- Playwright `visual` project updated with auth state and setup dependency
+- First run creates baseline snapshots; subsequent runs compare
+
+#### Deployment Documentation
+- `docs/DEPLOYMENT.md` — comprehensive deployment guide (440 lines)
+- Covers: Vercel, Neon, Upstash, Clerk, Stripe, Polygon.io, Railway, CI/CD, rollback, staging
+
+#### Release Runbook
+- `docs/RELEASE_RUNBOOK.md` — step-by-step release process (220 lines)
+- Covers: pre-release checklist, staging smoke tests, QA sign-off, release PR, production verification, hotfix process, rollback procedure, monitoring
+
 ---
 
 ## Next Development Steps
@@ -523,5 +555,3 @@ pnpm dev
 4. **Indicator settings** — editable period/color per indicator, persist indicator config
 5. **Alerts v2** — email/SMS notifications, cron worker for server-side evaluation, indicator-based alerts
 6. **Saved layouts v2** — layout sharing, layout update/overwrite, auto-load default layout on startup
-7. **Testing v2** — integration tests for all API routes, E2E tests for critical flows, security tests, accessibility audits
-8. **Deployment** — Vercel (frontend), Railway (WebSocket service), staging environment

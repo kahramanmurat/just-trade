@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/mock-data'
 
 test.describe('Symbol Selection', () => {
   test.beforeEach(async ({ page }) => {

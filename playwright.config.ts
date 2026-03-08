@@ -45,12 +45,20 @@ export default defineConfig({
     {
       name: 'visual',
       testDir: './playwright/visual',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'playwright/.clerk/user.json',
+      },
+      dependencies: ['setup'],
     },
     {
       name: 'a11y',
       testDir: './playwright/a11y',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'playwright/.clerk/user.json',
+      },
+      dependencies: ['setup'],
     },
   ],
 

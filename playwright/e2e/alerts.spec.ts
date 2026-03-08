@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page } from '../fixtures/mock-data'
 
 /** Wait for alerts tab content to finish loading */
 async function waitForAlertsLoaded(page: Page) {
