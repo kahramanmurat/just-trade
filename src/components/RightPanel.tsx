@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useChartStore, type RightPanelTab, type IndicatorType } from '@/lib/store/chartStore'
+import { useTickStore, type PriceTick } from '@/lib/store/tickStore'
 import { SYMBOLS } from '@/lib/api/symbols'
 import type { WatchlistResponse, WatchlistItemResponse } from '@/lib/api/types'
 
@@ -128,8 +129,28 @@ function AddSymbolDropdown({
   )
 }
 
+function WatchlistPrice({ tick }: { tick: PriceTick | undefined }) {
+  if (!tick) return null
+
+  const isUp = tick.change >= 0
+  const colorClass = isUp ? 'text-[var(--color-up)]' : 'text-[var(--color-down)]'
+  const sign = isUp ? '+' : ''
+
+  return (
+    <div className="text-right shrink-0">
+      <p className={`text-xs font-mono font-medium ${colorClass}`}>
+        {tick.price.toFixed(2)}
+      </p>
+      <p className={`text-[10px] font-mono ${colorClass}`}>
+        {sign}{tick.changePercent.toFixed(2)}%
+      </p>
+    </div>
+  )
+}
+
 function WatchlistTab() {
   const { symbol: activeSymbol, setSymbol } = useChartStore()
+  const ticks = useTickStore((s) => s.ticks)
   const [items, setItems] = useState<WatchlistItemResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -229,6 +250,7 @@ function WatchlistTab() {
                       {name}
                     </p>
                   </button>
+                  <WatchlistPrice tick={ticks[symbol]} />
                   <button
                     onClick={() => removeSymbol(symbol)}
                     className="opacity-0 group-hover:opacity-100 text-[var(--color-text-muted)] hover:text-[var(--color-down)] transition-all text-sm leading-none shrink-0"

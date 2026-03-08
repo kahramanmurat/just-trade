@@ -16,6 +16,8 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts'
 import { useChartStore, type IndicatorConfig } from '@/lib/store/chartStore'
+import { useTickStore } from '@/lib/store/tickStore'
+import { getRealtimeProvider } from '@/hooks/useTickStream'
 import { calcSMA, calcEMA, calcRSI } from '@/lib/chart/indicators'
 import type { OhlcvCandle, OhlcvResponse } from '@/lib/api/types'
 
@@ -96,6 +98,7 @@ export default function ChartContainer() {
   const candlesRef = useRef<OhlcvCandle[]>([])
 
   const { symbol, timeframe, activeTool, setActiveTool, indicators } = useChartStore()
+  const tick = useTickStore((s) => s.ticks[symbol])
   const [legend, setLegend] = useState<OhlcvLegend | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -219,9 +222,16 @@ export default function ChartContainer() {
         )
         chart.timeScale().fitContent()
 
-        // Set initial legend from last candle
+        // Set initial legend from last candle and seed realtime provider
         if (candles.length > 0) {
           setLegend(legendFromCandle(candles[candles.length - 1]))
+
+          // Seed the realtime provider with the last close price
+          const lastClose = candles[candles.length - 1].close
+          const provider = getRealtimeProvider()
+          if (provider) {
+            provider.seedPrices({ [symbol]: lastClose })
+          }
         }
 
         // Crosshair tracking for OHLCV legend
@@ -373,6 +383,40 @@ export default function ChartContainer() {
       }
     }
   }, [indicators, loading])
+
+  // Apply live tick to the last candle on the chart
+  useEffect(() => {
+    if (!tick || loading) return
+    const series = seriesRef.current
+    const candles = candlesRef.current
+    if (!series || candles.length === 0) return
+
+    const lastCandle = candles[candles.length - 1]
+    const price = tick.price
+
+    // Update the last candle's close, high, low
+    const updated: OhlcvCandle = {
+      ...lastCandle,
+      close: price,
+      high: Math.max(lastCandle.high, price),
+      low: Math.min(lastCandle.low, price),
+    }
+
+    // Update the candles ref
+    candles[candles.length - 1] = updated
+
+    // Push update to chart
+    series.update({
+      time: updated.time as UTCTimestamp,
+      open: updated.open,
+      high: updated.high,
+      low: updated.low,
+      close: updated.close,
+    })
+
+    // Update legend to show live price
+    setLegend(legendFromCandle(updated))
+  }, [tick, loading])
 
   const priceColor = legend?.up ? 'text-[var(--color-up)]' : 'text-[var(--color-down)]'
 

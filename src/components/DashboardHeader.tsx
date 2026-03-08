@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { UserButton } from '@clerk/nextjs'
 import { useChartStore, type Timeframe } from '@/lib/store/chartStore'
+import { useTickStore } from '@/lib/store/tickStore'
 import { findSymbol } from '@/lib/api/symbols'
 import SymbolSearchModal from '@/components/SymbolSearchModal'
 
@@ -49,6 +50,39 @@ function PanelToggleIcon() {
       <rect x="1.5" y="1.5" width="10" height="10" rx="1" stroke="currentColor" strokeWidth="1.3" />
       <path d="M9 1.5V11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
+  )
+}
+
+function ConnectionStatus() {
+  const status = useTickStore((s) => s.status)
+  const tick = useTickStore((s) => s.ticks[useChartStore.getState().symbol])
+
+  const dotColor =
+    status === 'connected'
+      ? 'bg-[var(--color-up)]'
+      : status === 'connecting'
+        ? 'bg-yellow-500'
+        : 'bg-[var(--color-text-muted)]'
+
+  const label =
+    status === 'connected'
+      ? 'Live'
+      : status === 'connecting'
+        ? 'Connecting...'
+        : 'Offline'
+
+  return (
+    <div className="flex items-center gap-1.5 px-2" aria-label={`Connection: ${label}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dotColor} ${status === 'connected' ? 'animate-pulse' : ''}`} />
+      <span className="text-[var(--color-text-secondary)] text-[10px] font-mono hidden md:inline">
+        {label}
+      </span>
+      {tick && status === 'connected' && (
+        <span className={`text-xs font-mono font-medium ${tick.change >= 0 ? 'text-[var(--color-up)]' : 'text-[var(--color-down)]'}`}>
+          {tick.price.toFixed(2)}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -146,6 +180,10 @@ export default function DashboardHeader() {
           </button>
         ))}
       </nav>
+
+      <div className="w-px h-5 bg-[var(--color-border)] shrink-0 hidden md:block" aria-hidden="true" />
+
+      <ConnectionStatus />
 
       {/* Spacer */}
       <div className="flex-1" />

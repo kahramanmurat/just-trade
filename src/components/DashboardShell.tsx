@@ -1,9 +1,14 @@
 'use client'
 
+import { useEffect, useMemo } from 'react'
 import DashboardHeader from '@/components/DashboardHeader'
 import LeftToolbar from '@/components/LeftToolbar'
 import RightPanel from '@/components/RightPanel'
 import ChartContainer from '@/components/chart/ChartContainer'
+import { useChartStore } from '@/lib/store/chartStore'
+import { SYMBOLS } from '@/lib/api/symbols'
+import { useTickStream, getRealtimeProvider } from '@/hooks/useTickStream'
+import { generateOhlcv } from '@/lib/chart/generateOhlcv'
 
 // Mobile notice — shown below 768px
 function MobileBanner() {
@@ -36,9 +41,38 @@ function MobileBanner() {
   )
 }
 
+function TickStreamManager() {
+  const symbol = useChartStore((s) => s.symbol)
+  const allSymbols = useMemo(() => {
+    const set = new Set(SYMBOLS.map((s) => s.symbol))
+    set.add(symbol)
+    return Array.from(set)
+  }, [symbol])
+
+  useTickStream(allSymbols)
+
+  // Seed all symbols with last close from mock OHLCV so ticks start at realistic prices
+  useEffect(() => {
+    const provider = getRealtimeProvider()
+    if (!provider) return
+
+    const seedPrices: Record<string, number> = {}
+    for (const sym of allSymbols) {
+      const candles = generateOhlcv(sym, '1D', 200)
+      if (candles.length > 0) {
+        seedPrices[sym] = candles[candles.length - 1].close
+      }
+    }
+    provider.seedPrices(seedPrices)
+  }, [allSymbols])
+
+  return null
+}
+
 export default function DashboardShell() {
   return (
     <div className="flex flex-col h-screen bg-[var(--color-bg)] overflow-hidden">
+      <TickStreamManager />
       <DashboardHeader />
       <MobileBanner />
       <div className="flex flex-1 min-h-0">
