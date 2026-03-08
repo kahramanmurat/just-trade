@@ -3,79 +3,7 @@
 import DashboardHeader from '@/components/DashboardHeader'
 import LeftToolbar from '@/components/LeftToolbar'
 import RightPanel from '@/components/RightPanel'
-import { useChartStore } from '@/lib/store/chartStore'
-
-// Chart area placeholder — replaced by ChartContainer in Epic 3 (Charting Agent)
-function ChartAreaPlaceholder() {
-  const { symbol, timeframe } = useChartStore()
-
-  return (
-    <main
-      className="relative flex-1 min-w-0 min-h-0 bg-[var(--color-bg)] overflow-hidden chart-grid"
-      aria-label="Chart area"
-      id="chart-area"
-    >
-      {/* OHLCV legend overlay */}
-      <div
-        className="absolute top-3 left-3 z-10 flex items-center gap-3 pointer-events-none select-none"
-        aria-label="OHLCV legend"
-      >
-        <span className="text-[var(--color-text)] text-xs font-mono font-semibold">
-          {symbol} · {timeframe}
-        </span>
-        <div className="flex items-center gap-3 text-[10px] font-mono">
-          {['O', 'H', 'L', 'C', 'Vol'].map((label) => (
-            <span key={label}>
-              <span className="text-[var(--color-text-secondary)]">{label} </span>
-              <span className="text-[var(--color-text-muted)]">—</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Symbol watermark */}
-      <div
-        className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
-        aria-hidden="true"
-      >
-        <span className="text-[var(--color-text-muted)] text-8xl font-bold font-mono opacity-[0.06] tracking-widest">
-          {symbol}
-        </span>
-      </div>
-
-      {/* Chart placeholder message */}
-      <div className="absolute bottom-10 left-0 right-16 flex items-center justify-center pointer-events-none select-none">
-        <p className="text-[var(--color-text-muted)] text-xs font-mono">
-          Chart component renders here — Epic 3 (Charting Agent)
-        </p>
-      </div>
-
-      {/* Price scale — right edge */}
-      <div
-        className="absolute right-0 top-0 bottom-0 w-16 border-l border-[var(--color-border)] flex flex-col justify-around items-end pr-2"
-        aria-hidden="true"
-      >
-        {Array.from({ length: 7 }).map((_, i) => (
-          <span key={i} className="text-[var(--color-text-muted)] text-[10px] font-mono tabular-nums">
-            —
-          </span>
-        ))}
-      </div>
-
-      {/* Time scale — bottom edge */}
-      <div
-        className="absolute bottom-0 left-0 right-16 h-8 border-t border-[var(--color-border)] flex items-center justify-around px-4"
-        aria-hidden="true"
-      >
-        {Array.from({ length: 8 }).map((_, i) => (
-          <span key={i} className="text-[var(--color-text-muted)] text-[10px] font-mono">
-            —
-          </span>
-        ))}
-      </div>
-    </main>
-  )
-}
+import ChartContainer from '@/components/chart/ChartContainer'
 
 // Mobile notice — shown below 768px
 function MobileBanner() {
@@ -115,7 +43,7 @@ export default function DashboardShell() {
       <MobileBanner />
       <div className="flex flex-1 min-h-0">
         <LeftToolbar />
-        <ChartAreaPlaceholder />
+        <ChartContainer />
         <RightPanel />
       </div>
     </div>
