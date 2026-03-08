@@ -1,7 +1,10 @@
 'use client'
 
+import { useState, useEffect, useCallback } from 'react'
 import { UserButton } from '@clerk/nextjs'
 import { useChartStore, type Timeframe } from '@/lib/store/chartStore'
+import { findSymbol } from '@/lib/api/symbols'
+import SymbolSearchModal from '@/components/SymbolSearchModal'
 
 const TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '1h', '4h', '1D', '1W', '1M']
 
@@ -51,8 +54,33 @@ function PanelToggleIcon() {
 
 export default function DashboardHeader() {
   const { symbol, timeframe, setTimeframe, toggleRightPanel } = useChartStore()
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  const openSearch = useCallback(() => setSearchOpen(true), [])
+  const closeSearch = useCallback(() => setSearchOpen(false), [])
+
+  // Global hotkeys: Ctrl+K or / to open symbol search
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Don't trigger when typing in an input/textarea
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+
+      if (e.key === '/' || (e.key === 'k' && (e.metaKey || e.ctrlKey))) {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const symbolInfo = findSymbol(symbol)
+  const exchangeLabel = symbolInfo?.exchange ?? ''
 
   return (
+    <>
+    <SymbolSearchModal open={searchOpen} onClose={closeSearch} />
     <header
       className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 z-50"
       role="banner"
@@ -73,11 +101,14 @@ export default function DashboardHeader() {
 
       {/* Active symbol chip */}
       <button
+        onClick={openSearch}
         className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors shrink-0"
         aria-label={`Active symbol: ${symbol}. Click to search.`}
       >
         <span className="text-sm font-mono font-medium">{symbol}</span>
-        <span className="text-[var(--color-text-secondary)] text-xs hidden md:inline">· NASDAQ</span>
+        {exchangeLabel && (
+          <span className="text-[var(--color-text-secondary)] text-xs hidden md:inline">· {exchangeLabel}</span>
+        )}
         <svg
           width="8"
           height="8"
@@ -152,5 +183,6 @@ export default function DashboardHeader() {
         </div>
       </div>
     </header>
+    </>
   )
 }

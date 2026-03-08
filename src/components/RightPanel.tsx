@@ -34,6 +34,8 @@ const INDICATOR_ITEMS = [
 // --- Tab content components ---
 
 function WatchlistTab() {
+  const { symbol: activeSymbol, setSymbol } = useChartStore()
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-border)] shrink-0">
@@ -49,30 +51,40 @@ function WatchlistTab() {
       </div>
 
       <ul className="flex-1 overflow-y-auto" role="list" aria-label="Watchlist items">
-        {WATCHLIST_ITEMS.map(({ symbol, name, price, pct, up }) => (
-          <li key={symbol}>
-            <button
-              className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-[var(--color-surface-2)] transition-colors text-left border-b border-[var(--color-border-subtle)]"
-              aria-label={`${symbol} ${name}: ${price}, ${pct}`}
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-[var(--color-text)] text-xs font-mono font-medium">{symbol}</p>
-                <p className="text-[var(--color-text-secondary)] text-[10px] truncate">{name}</p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-[var(--color-text)] text-xs font-mono tabular-nums">{price}</p>
-                <p
-                  className={[
-                    'text-[10px] font-mono tabular-nums',
-                    up ? 'text-[var(--color-up)]' : 'text-[var(--color-down)]',
-                  ].join(' ')}
-                >
-                  {pct}
-                </p>
-              </div>
-            </button>
-          </li>
-        ))}
+        {WATCHLIST_ITEMS.map(({ symbol, name, price, pct, up }) => {
+          const isActive = symbol === activeSymbol
+          return (
+            <li key={symbol}>
+              <button
+                onClick={() => setSymbol(symbol)}
+                className={[
+                  'w-full flex items-center gap-2 px-3 py-2.5 transition-colors text-left border-b border-[var(--color-border-subtle)]',
+                  isActive
+                    ? 'bg-[var(--color-accent)]/10 border-l-2 border-l-[var(--color-accent)]'
+                    : 'hover:bg-[var(--color-surface-2)]',
+                ].join(' ')}
+                aria-label={`${symbol} ${name}: ${price}, ${pct}`}
+                aria-current={isActive ? 'true' : undefined}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-[var(--color-text)] text-xs font-mono font-medium">{symbol}</p>
+                  <p className="text-[var(--color-text-secondary)] text-[10px] truncate">{name}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[var(--color-text)] text-xs font-mono tabular-nums">{price}</p>
+                  <p
+                    className={[
+                      'text-[10px] font-mono tabular-nums',
+                      up ? 'text-[var(--color-up)]' : 'text-[var(--color-down)]',
+                    ].join(' ')}
+                  >
+                    {pct}
+                  </p>
+                </div>
+              </button>
+            </li>
+          )
+        })}
       </ul>
     </div>
   )
