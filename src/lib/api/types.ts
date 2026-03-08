@@ -119,6 +119,27 @@ export type TierLimitsResponse = {
   maxLayouts: number
 }
 
+// AI Assistant types
+
+export type AiChatMessage = {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export type AiChatRequest = {
+  message: string
+  context: {
+    symbol: string
+    timeframe: string
+    indicators: { type: string; period: number; visible: boolean }[]
+    watchlist: string[]
+  }
+}
+
+export type AiChatResponse = {
+  reply: string
+}
+
 export type SubscriptionWithLimitsResponse = {
   subscription: SubscriptionResponse
   limits: TierLimitsResponse

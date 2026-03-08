@@ -19,7 +19,7 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 | Caching | Upstash Redis (`@upstash/redis`) | Active |
 | Market Data | Polygon.io REST + mock fallback | Active |
 | Real-time | Mock tick simulator (WebSocket-ready architecture) | Active |
-| Payments | Stripe | Planned |
+| Payments | Stripe (Checkout + Portal + Webhooks) | Active |
 | Testing | Vitest + Playwright | Planned |
 
 ---
@@ -214,6 +214,43 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 - `setIndicators`, `addDrawing`, `clearDrawings`, `setDrawings`, `setRightPanelOpen` actions
 - Layout load sets all chart state atomically via store actions
 
+### Sprint 6 — Billing / Subscription Gating v1 ✅
+
+#### Free / Pro / Premium Plan Support
+- Tier limits config at `src/lib/api/tierLimits.ts` — Free (1 watchlist/10 items, 2 indicators, 0 alerts, 0 layouts), Pro (3/50, 10, 5, 5), Premium (unlimited)
+- `getUserPlan` helper at `src/lib/db/getUserPlan.ts` — fetches user's plan from Subscription row
+- `subscriptionStore` (Zustand) — holds plan, limits, and usage; loaded on dashboard mount
+
+#### Stripe Checkout
+- `POST /api/checkout` — creates Stripe Checkout session for Pro or Premium upgrade
+- Lazy-creates real Stripe customer from placeholder `pending:{clerkId}` on first checkout
+- Price IDs configured via `STRIPE_PRO_PRICE_ID` and `STRIPE_PREMIUM_PRICE_ID` env vars
+- Success/cancel redirects back to `/dashboard`
+
+#### Stripe Billing Portal
+- `POST /api/billing-portal` — creates Stripe Customer Portal session for subscription management
+- Guards against users without a real Stripe customer (returns 400)
+
+#### Stripe Webhook
+- `POST /api/webhooks/stripe` — handles `customer.subscription.created`, `updated`, `deleted`
+- Signature verification via `STRIPE_WEBHOOK_SECRET`
+- Maps Stripe price IDs to plan enum, Stripe status to SubscriptionStatus enum
+- Subscription deletion resets user to free plan
+
+#### Server-Side Plan Enforcement
+- `POST /api/alerts` — checks alert count against plan limit (403 `LIMIT_REACHED`)
+- `POST /api/layouts` — checks layout count against plan limit (403 `LIMIT_REACHED`)
+- `POST /api/watchlists/items` — checks watchlist item count against plan limit (403 `LIMIT_REACHED`)
+
+#### Billing UI
+- `UpgradeBadge` in DashboardHeader — shows "Upgrade" button for free users, plan badge for paid users
+- `UpgradePrompt` inline component — shown in Alerts tab, Watchlist tab, and Layouts dropdown when limits reached
+- "+ Save" button hidden in Layouts dropdown when at layout limit
+- "+ New" alert button hidden when at alert limit
+- "+ Add" watchlist button hidden when at watchlist item limit
+- `GET /api/subscription` — returns current plan, limits, and usage counts
+- `SubscriptionManager` in DashboardShell — fetches subscription data on mount
+
 ### Sprint 3c — Realtime Price Updates v1 ✅
 
 #### Realtime Architecture
@@ -277,6 +314,15 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 | `src/app/api/alerts/[id]/route.ts` | Alert delete + trigger endpoints |
 | `src/app/api/layouts/route.ts` | Layout list + create endpoints |
 | `src/app/api/layouts/[id]/route.ts` | Layout delete + set-default endpoints |
+| `src/lib/stripe.ts` | Stripe client singleton (lazy proxy) |
+| `src/lib/api/tierLimits.ts` | Plan-based feature limits config |
+| `src/lib/db/getUserPlan.ts` | Fetch user's subscription plan |
+| `src/lib/store/subscriptionStore.ts` | Zustand store (plan, limits, usage) |
+| `src/components/UpgradeButton.tsx` | UpgradeBadge + UpgradePrompt components |
+| `src/app/api/subscription/route.ts` | Subscription + limits + usage endpoint |
+| `src/app/api/checkout/route.ts` | Stripe Checkout session creation |
+| `src/app/api/billing-portal/route.ts` | Stripe Customer Portal session creation |
+| `src/app/api/webhooks/stripe/route.ts` | Stripe webhook handler (signature verified) |
 | `prisma/schema.prisma` | Database schema |
 
 ### Zustand Stores
@@ -302,6 +348,14 @@ status: ConnectionStatus         — disconnected | connecting | connected
 ```
 alerts: AlertResponse[]  — user's alerts fetched from API
 toasts: AlertToast[]     — active toast notifications for triggered alerts
+```
+
+#### subscriptionStore
+```
+plan: PlanType            — current plan (free/pro/premium)
+limits: TierLimitsResponse — max watchlists, items, indicators, alerts, layouts
+usage: object             — current counts of watchlists, items, alerts, layouts
+loaded: boolean           — whether subscription data has been fetched
 ```
 
 ### Database Models
@@ -335,6 +389,10 @@ pnpm dev
 | `POLYGON_API_KEY` | No | Polygon.io market data (falls back to mock) |
 | `UPSTASH_REDIS_REST_URL` | No | Redis caching (skipped if absent) |
 | `UPSTASH_REDIS_REST_TOKEN` | No | Redis caching (skipped if absent) |
+| `STRIPE_SECRET_KEY` | Yes | Stripe API access |
+| `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signature verification |
+| `STRIPE_PRO_PRICE_ID` | Yes | Stripe Price ID for Pro plan |
+| `STRIPE_PREMIUM_PRICE_ID` | Yes | Stripe Price ID for Premium plan |
 
 ---
 
@@ -344,9 +402,7 @@ pnpm dev
 2. **Polygon WebSocket integration** — swap mock tick provider for real Polygon WebSocket with Clerk JWT auth
 3. **Drawing tools v2** — trendline, fibonacci retracement, rectangle annotation
 4. **Indicator settings** — editable period/color per indicator, persist indicator config
-5. **Stripe integration** — subscription checkout, billing portal, tier enforcement
-6. **Subscription tier enforcement** — restrict indicators, watchlists, alerts, data delay by plan
-7. **Alerts v2** — email/SMS notifications, cron worker for server-side evaluation, indicator-based alerts
-8. **Saved layouts v2** — layout sharing, layout update/overwrite, auto-load default layout on startup
-9. **Testing** — Vitest unit tests, Playwright E2E, accessibility audits
-10. **Deployment** — Vercel (frontend), Railway (WebSocket service), staging environment
+5. **Alerts v2** — email/SMS notifications, cron worker for server-side evaluation, indicator-based alerts
+6. **Saved layouts v2** — layout sharing, layout update/overwrite, auto-load default layout on startup
+7. **Testing** — Vitest unit tests, Playwright E2E, accessibility audits
+8. **Deployment** — Vercel (frontend), Railway (WebSocket service), staging environment

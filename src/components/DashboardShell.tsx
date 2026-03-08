@@ -12,6 +12,7 @@ import { useAlertEvaluator } from '@/hooks/useAlertEvaluator'
 import AlertToastContainer from '@/components/AlertToastContainer'
 import { generateOhlcv } from '@/lib/chart/generateOhlcv'
 import { useSubscriptionStore } from '@/lib/store/subscriptionStore'
+import AiAssistant from '@/components/AiAssistant'
 import type { SubscriptionWithLimitsResponse } from '@/lib/api/types'
 
 // Mobile notice — shown below 768px
@@ -107,6 +108,7 @@ export default function DashboardShell() {
         <RightPanel />
       </div>
       <AlertToastContainer />
+      <AiAssistant />
     </div>
   )
 }

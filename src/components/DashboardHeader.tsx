@@ -14,6 +14,7 @@ import { findSymbol } from '@/lib/api/symbols'
 import SymbolSearchModal from '@/components/SymbolSearchModal'
 import { UpgradeBadge } from '@/components/UpgradeButton'
 import { useSubscriptionStore } from '@/lib/store/subscriptionStore'
+import { useAiStore } from '@/lib/store/aiStore'
 import type {
   LayoutResponse,
   LayoutsListResponse,
@@ -403,9 +404,23 @@ function LayoutsDropdown() {
   )
 }
 
+function AiIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+      <path
+        d="M6.5 1L7.8 4.2L11.2 4.6L8.85 6.9L9.4 10.3L6.5 8.7L3.6 10.3L4.15 6.9L1.8 4.6L5.2 4.2L6.5 1Z"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export default function DashboardHeader() {
   const { symbol, timeframe, setTimeframe, toggleRightPanel } = useChartStore()
   const [searchOpen, setSearchOpen] = useState(false)
+  const toggleAi = useAiStore((s) => s.toggleOpen)
 
   const openSearch = useCallback(() => setSearchOpen(true), [])
   const closeSearch = useCallback(() => setSearchOpen(false), [])
@@ -507,6 +522,15 @@ export default function DashboardHeader() {
 
       {/* Right actions */}
       <div className="flex items-center gap-1">
+        <button
+          onClick={toggleAi}
+          className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] rounded transition-colors"
+          aria-label="Open AI assistant"
+        >
+          <AiIcon />
+          <span>AI</span>
+        </button>
+
         <button
           className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] rounded transition-colors"
           aria-label="Open indicators picker"

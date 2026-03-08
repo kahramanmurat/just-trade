@@ -19,9 +19,6 @@ const PRICE_IDS: Record<string, string | undefined> = {
 }
 
 export async function POST(request: Request) {
-  console.log('[checkout] STRIPE_PRO_PRICE_ID:', process.env.STRIPE_PRO_PRICE_ID ? 'SET' : 'NOT SET')
-  console.log('[checkout] STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY ? 'SET' : 'NOT SET')
-
   try {
   const { userId: clerkId } = await auth()
   if (!clerkId) {
@@ -49,7 +46,6 @@ export async function POST(request: Request) {
 
   const { plan } = parsed.data
   const priceId = PRICE_IDS[plan]
-  console.log('[checkout] plan:', plan, 'priceId:', priceId)
 
   if (!priceId) {
     return NextResponse.json<ApiError>(
@@ -99,7 +95,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: session.url })
   } catch (err) {
-    console.error('[checkout] FULL ERROR:', err)
     const message = err instanceof Error ? err.message : 'Checkout failed'
     return NextResponse.json<ApiError>(
       { error: message, code: 'CHECKOUT_ERROR' },
