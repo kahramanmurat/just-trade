@@ -58,3 +58,45 @@ export type AlertResponse = {
 export type AlertsListResponse = {
   alerts: AlertResponse[]
 }
+
+// Saved layout config — stored as JSON in the database
+export type LayoutConfigJson = {
+  indicators: {
+    type: string
+    period: number
+    visible: boolean
+    color: string
+  }[]
+  drawings: {
+    type: 'hline'
+    price: number
+  }[]
+  rightPanelTab: string
+  rightPanelOpen: boolean
+}
+
+// Layout item — returned by GET /api/layouts
+export type LayoutResponse = {
+  id: string
+  name: string
+  symbol: string
+  timeframe: string
+  isDefault: boolean
+  config: LayoutConfigJson
+  createdAt: string
+  updatedAt: string
+}
+
+// GET /api/layouts response
+export type LayoutsListResponse = {
+  layouts: LayoutResponse[]
+}
+
+// POST /api/layouts request body
+export type CreateLayoutRequest = {
+  name: string
+  symbol: string
+  timeframe: string
+  isDefault?: boolean
+  config: LayoutConfigJson
+}

@@ -1,6 +1,5 @@
 // prisma/schema.prisma
-// Users, subscriptions, watchlists, alerts.
-// Layouts, drawings, indicators will be added in later sprints.
+// Users, subscriptions, watchlists, alerts, saved layouts.
 
 generator client {
   provider = "prisma-client-js"
@@ -43,6 +42,7 @@ model User {
   subscription Subscription?
   watchlists   Watchlist[]
   alerts       Alert[]
+  savedLayouts SavedLayout[]
 
   @@index([clerkId], name: "idx_users_clerk_id")
   @@map("users")
@@ -120,4 +120,27 @@ model Alert {
   @@index([symbol], name: "idx_alerts_symbol")
   @@index([isActive], name: "idx_alerts_is_active")
   @@map("alerts")
+}
+
+// ---------------------------------------------------------------------------
+// Saved Layouts
+// ---------------------------------------------------------------------------
+
+model SavedLayout {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  name       String   @db.VarChar(100)
+  symbol     String   @db.VarChar(30)
+  timeframe  String   @db.VarChar(10)
+  isDefault  Boolean  @default(false) @map("is_default")
+  configJson Json     @map("config_json") // indicators, drawings, panel state
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_saved_layouts_user_id")
+  @@index([symbol], name: "idx_saved_layouts_symbol")
+  @@index([userId, symbol], name: "idx_saved_layouts_user_id_symbol")
+  @@map("saved_layouts")
 }

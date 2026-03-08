@@ -97,7 +97,7 @@ export default function ChartContainer() {
   const indicatorSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map())
   const candlesRef = useRef<OhlcvCandle[]>([])
 
-  const { symbol, timeframe, activeTool, setActiveTool, indicators } = useChartStore()
+  const { symbol, timeframe, activeTool, setActiveTool, indicators, drawings, clearDrawings } = useChartStore()
   const tick = useTickStore((s) => s.ticks[symbol])
   const [legend, setLegend] = useState<OhlcvLegend | null>(null)
   const [loading, setLoading] = useState(true)
@@ -116,9 +116,10 @@ export default function ChartContainer() {
         }
         priceLinesRef.current = []
       }
+      clearDrawings()
       setActiveTool('select')
     }
-  }, [activeTool, setActiveTool])
+  }, [activeTool, setActiveTool, clearDrawings])
 
   // Fetch OHLCV data from API
   const fetchOhlcv = useCallback(
@@ -284,6 +285,7 @@ export default function ChartContainer() {
         title: '',
       })
       priceLinesRef.current.push(priceLine)
+      useChartStore.getState().addDrawing({ price })
     })
 
     // Resize observer
@@ -309,6 +311,30 @@ export default function ChartContainer() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, timeframe])
+
+  // Restore drawings from store (used when loading a saved layout)
+  const prevDrawingsLenRef = useRef(0)
+  useEffect(() => {
+    const series = seriesRef.current
+    if (!series || loading) return
+
+    // Only restore if drawings were set externally (not from chart clicks)
+    // Detect external set: length changed and we have no matching price lines
+    if (drawings.length > 0 && priceLinesRef.current.length === 0 && prevDrawingsLenRef.current === 0) {
+      for (const d of drawings) {
+        const priceLine = series.createPriceLine({
+          price: d.price,
+          color: C.up,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '',
+        })
+        priceLinesRef.current.push(priceLine)
+      }
+    }
+    prevDrawingsLenRef.current = drawings.length
+  }, [drawings, loading])
 
   // Sync indicator series when indicators config or loading state changes
   useEffect(() => {

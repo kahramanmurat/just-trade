@@ -26,6 +26,10 @@ export type IndicatorConfig = {
   color: string
 }
 
+export type HLineDrawing = {
+  price: number
+}
+
 const DEFAULT_INDICATORS: IndicatorConfig[] = [
   { id: 'sma-20', type: 'SMA', period: 20, visible: true, color: '#2962FF' },
   { id: 'ema-50', type: 'EMA', period: 50, visible: true, color: '#FF6D00' },
@@ -39,14 +43,20 @@ interface ChartStore {
   rightPanelTab: RightPanelTab
   rightPanelOpen: boolean
   indicators: IndicatorConfig[]
+  drawings: HLineDrawing[]
   setSymbol: (symbol: string) => void
   setTimeframe: (timeframe: Timeframe) => void
   setActiveTool: (tool: DrawingTool) => void
   setRightPanelTab: (tab: RightPanelTab) => void
+  setRightPanelOpen: (open: boolean) => void
   toggleRightPanel: () => void
   toggleIndicator: (id: string) => void
   removeIndicator: (id: string) => void
   addIndicator: (type: IndicatorType) => void
+  setIndicators: (indicators: IndicatorConfig[]) => void
+  addDrawing: (drawing: HLineDrawing) => void
+  clearDrawings: () => void
+  setDrawings: (drawings: HLineDrawing[]) => void
 }
 
 let nextIndicatorId = 1
@@ -68,10 +78,12 @@ export const useChartStore = create<ChartStore>((set) => ({
   rightPanelTab: 'watchlist',
   rightPanelOpen: true,
   indicators: DEFAULT_INDICATORS,
+  drawings: [],
   setSymbol: (symbol) => set({ symbol }),
   setTimeframe: (timeframe) => set({ timeframe }),
   setActiveTool: (activeTool) => set({ activeTool }),
   setRightPanelTab: (rightPanelTab) => set({ rightPanelTab }),
+  setRightPanelOpen: (rightPanelOpen) => set({ rightPanelOpen }),
   toggleRightPanel: () => set((state) => ({ rightPanelOpen: !state.rightPanelOpen })),
   toggleIndicator: (id) =>
     set((state) => ({
@@ -99,4 +111,9 @@ export const useChartStore = create<ChartStore>((set) => ({
         ],
       }
     }),
+  setIndicators: (indicators) => set({ indicators }),
+  addDrawing: (drawing) =>
+    set((state) => ({ drawings: [...state.drawings, drawing] })),
+  clearDrawings: () => set({ drawings: [] }),
+  setDrawings: (drawings) => set({ drawings }),
 }))

@@ -38,6 +38,7 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 - **Unimplemented tools** — trendline, fibonacci, rectangle, text, magnet shown with "coming soon" tooltip and disabled state
 - **Indicators v1** — SMA (20), EMA (50) as chart overlays; RSI (14) in separate lower pane; add/remove/toggle from Indicators tab
 - **Realtime price updates** — mock tick simulator feeds live prices to chart (updates last candle) and watchlist; connection status in header
+- **Price alerts v1** — create gt/lt price alerts, client-side evaluation against tick store, in-app toast notifications, alerts tab with create/delete/status
 - **Clerk authentication** — sign-in, sign-up, protected `/dashboard`, webhook endpoint for user sync
 - **Local dev user resolution** — `resolveUser` helper auto-creates DB user from Clerk session if webhook hasn't fired; handles P2002 race conditions
 
@@ -155,6 +156,38 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 - Color dot per indicator in the panel list
 - Indicators recalculate on symbol/timeframe change
 
+### Sprint 4 — Alerts System v1 ✅
+
+#### Price Alerts
+- Alert model in Prisma: symbol, condition (gt/lt), threshold, isActive, triggered, triggeredAt
+- `GET /api/alerts` — list user's alerts (sorted by createdAt desc)
+- `POST /api/alerts` — create alert with Zod validation (symbol, condition, threshold)
+- `DELETE /api/alerts/[id]` — delete alert (ownership check)
+- `PATCH /api/alerts/[id]` — mark alert as triggered (idempotent, sets isActive=false)
+
+#### Client-Side Evaluation
+- `useAlertEvaluator` hook — subscribes to tick store, evaluates active alerts against live prices
+- Condition check: `gt` (price > threshold), `lt` (price < threshold)
+- `firedRef` Set prevents duplicate triggers within a session
+- Triggers update local Zustand state immediately, then fire-and-forget PATCH to persist
+
+#### In-App Notifications
+- `AlertToastContainer` — fixed bottom-right toast popups for triggered alerts
+- Auto-dismiss after 8 seconds, manual dismiss via × button
+- Shows symbol, condition label ("crossed above/below"), threshold, and current price
+- `aria-live="polite"` for accessibility
+
+#### Alerts Tab
+- `AlertsTab` in RightPanel — fetches from API on mount, populates alert store
+- `CreateAlertForm` — inline form (symbol from chart, condition dropdown, threshold input)
+- Sorted display: active alerts first, then triggered
+- Optimistic delete with API rollback on failure
+- Loading, error, and empty states
+
+#### Alert Store (Zustand)
+- `alertStore` — holds alerts array and toasts array
+- Actions: setAlerts, addAlert, removeAlert, markTriggered, addToast, dismissToast
+
 ### Sprint 3c — Realtime Price Updates v1 ✅
 
 #### Realtime Architecture
@@ -211,6 +244,11 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 | `src/app/api/watchlists/route.ts` | Watchlist CRUD |
 | `src/app/api/watchlists/items/route.ts` | Watchlist item add/remove |
 | `src/app/api/webhooks/clerk/route.ts` | Clerk webhook sync |
+| `src/lib/store/alertStore.ts` | Zustand store (alerts, toasts) |
+| `src/hooks/useAlertEvaluator.ts` | Client-side alert evaluation against ticks |
+| `src/components/AlertToastContainer.tsx` | Toast notifications for triggered alerts |
+| `src/app/api/alerts/route.ts` | Alert list + create endpoints |
+| `src/app/api/alerts/[id]/route.ts` | Alert delete + trigger endpoints |
 | `prisma/schema.prisma` | Database schema |
 
 ### Zustand Stores
@@ -231,12 +269,19 @@ ticks: Record<string, PriceTick> — latest tick per symbol
 status: ConnectionStatus         — disconnected | connecting | connected
 ```
 
+#### alertStore
+```
+alerts: AlertResponse[]  — user's alerts fetched from API
+toasts: AlertToast[]     — active toast notifications for triggered alerts
+```
+
 ### Database Models
 
 - **User** — `id`, `clerkId`, `email`, `name`, `createdAt`
 - **Subscription** — `id`, `userId`, `stripeCustomerId`, `plan`, `status`, `currentPeriodEnd`
 - **Watchlist** — `id`, `userId`, `name`, `isDefault`, `createdAt`
 - **WatchlistItem** — `id`, `watchlistId`, `symbol`, `displayOrder`
+- **Alert** — `id`, `userId`, `symbol`, `condition`, `threshold`, `isActive`, `triggered`, `triggeredAt`, `createdAt`
 
 ---
 
@@ -267,11 +312,11 @@ pnpm dev
 
 1. **TanStack React Query** — replace raw `fetch` calls with React Query for caching, refetching, optimistic updates
 2. **Polygon WebSocket integration** — swap mock tick provider for real Polygon WebSocket with Clerk JWT auth
-3. **Alerts system** — `POST/DELETE /api/alerts`, price-crossing logic, alerts tab wired to DB
-4. **Saved layouts** — persist chart layout (symbol, timeframe, indicators, drawings) per user
-5. **Drawing tools v2** — trendline, fibonacci retracement, rectangle annotation
-6. **Indicator settings** — editable period/color per indicator, persist indicator config
-7. **Stripe integration** — subscription checkout, billing portal, tier enforcement
-8. **Subscription tier enforcement** — restrict indicators, watchlists, alerts, data delay by plan
+3. **Saved layouts** — persist chart layout (symbol, timeframe, indicators, drawings) per user
+4. **Drawing tools v2** — trendline, fibonacci retracement, rectangle annotation
+5. **Indicator settings** — editable period/color per indicator, persist indicator config
+6. **Stripe integration** — subscription checkout, billing portal, tier enforcement
+7. **Subscription tier enforcement** — restrict indicators, watchlists, alerts, data delay by plan
+8. **Alerts v2** — email/SMS notifications, cron worker for server-side evaluation, indicator-based alerts
 9. **Testing** — Vitest unit tests, Playwright E2E, accessibility audits
 10. **Deployment** — Vercel (frontend), Railway (WebSocket service), staging environment
