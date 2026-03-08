@@ -5,6 +5,8 @@ import { useChartStore, type RightPanelTab, type IndicatorType } from '@/lib/sto
 import { useTickStore, type PriceTick } from '@/lib/store/tickStore'
 import { useAlertStore } from '@/lib/store/alertStore'
 import { SYMBOLS } from '@/lib/api/symbols'
+import { useSubscriptionStore } from '@/lib/store/subscriptionStore'
+import { UpgradePrompt } from '@/components/UpgradeButton'
 import type {
   WatchlistResponse,
   WatchlistItemResponse,
@@ -156,6 +158,8 @@ function WatchlistTab() {
   const [items, setItems] = useState<WatchlistItemResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const limits = useSubscriptionStore((s) => s.limits)
+  const atLimit = items.length >= limits.maxWatchlistItems
 
   const fetchWatchlist = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true)
@@ -201,11 +205,15 @@ function WatchlistTab() {
         <span className="text-[var(--color-text-secondary)] text-[10px] font-medium uppercase tracking-widest">
           Default
         </span>
-        <AddSymbolDropdown
-          existingSymbols={items.map((i) => i.symbol)}
-          onAdd={() => fetchWatchlist(true)}
-        />
+        {!atLimit && (
+          <AddSymbolDropdown
+            existingSymbols={items.map((i) => i.symbol)}
+            onAdd={() => fetchWatchlist(true)}
+          />
+        )}
       </div>
+
+      {atLimit && <UpgradePrompt feature="Watchlist symbols" limit={limits.maxWatchlistItems} />}
 
       {loading && (
         <div className="flex items-center justify-center h-24">
@@ -378,6 +386,8 @@ function AlertsTab() {
   const { alerts, setAlerts, addAlert, removeAlert } = useAlertStore()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const limits = useSubscriptionStore((s) => s.limits)
+  const atLimit = alerts.length >= limits.maxAlerts
 
   useEffect(() => {
     const fetchAlerts = async () => {
@@ -428,8 +438,10 @@ function AlertsTab() {
         <span className="text-[var(--color-text-secondary)] text-[10px] font-medium uppercase tracking-widest">
           Alerts
         </span>
-        <CreateAlertForm onCreated={addAlert} />
+        {!atLimit && <CreateAlertForm onCreated={addAlert} />}
       </div>
+
+      {atLimit && <UpgradePrompt feature="Alerts" limit={limits.maxAlerts} />}
 
       {loading && (
         <div className="flex items-center justify-center h-24">

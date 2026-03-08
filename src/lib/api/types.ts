@@ -100,3 +100,32 @@ export type CreateLayoutRequest = {
   isDefault?: boolean
   config: LayoutConfigJson
 }
+
+// Subscription / billing types
+
+export type PlanType = 'free' | 'pro' | 'premium'
+
+export type SubscriptionResponse = {
+  plan: PlanType
+  status: string
+  currentPeriodEnd: string | null
+}
+
+export type TierLimitsResponse = {
+  maxWatchlists: number
+  maxWatchlistItems: number
+  maxIndicators: number
+  maxAlerts: number
+  maxLayouts: number
+}
+
+export type SubscriptionWithLimitsResponse = {
+  subscription: SubscriptionResponse
+  limits: TierLimitsResponse
+  usage: {
+    watchlists: number
+    watchlistItems: number
+    alerts: number
+    layouts: number
+  }
+}

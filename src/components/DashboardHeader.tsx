@@ -12,6 +12,8 @@ import {
 import { useTickStore } from '@/lib/store/tickStore'
 import { findSymbol } from '@/lib/api/symbols'
 import SymbolSearchModal from '@/components/SymbolSearchModal'
+import { UpgradeBadge } from '@/components/UpgradeButton'
+import { useSubscriptionStore } from '@/lib/store/subscriptionStore'
 import type {
   LayoutResponse,
   LayoutsListResponse,
@@ -121,6 +123,8 @@ function LayoutsDropdown() {
   const [saveAsDefault, setSaveAsDefault] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const limits = useSubscriptionStore((s) => s.limits)
+  const atLimit = layouts.length >= limits.maxLayouts
 
   const fetchLayouts = useCallback(async () => {
     setLoading(true)
@@ -274,16 +278,18 @@ function LayoutsDropdown() {
             <span className="text-[var(--color-text-secondary)] text-[10px] font-medium uppercase tracking-widest">
               Saved Layouts
             </span>
-            <button
-              onClick={() => {
-                setShowSaveForm(!showSaveForm)
-                setError(null)
-              }}
-              className="text-[var(--color-accent)] text-xs hover:text-[var(--color-text)] transition-colors"
-              aria-label="Save current layout"
-            >
-              + Save
-            </button>
+            {!atLimit && (
+              <button
+                onClick={() => {
+                  setShowSaveForm(!showSaveForm)
+                  setError(null)
+                }}
+                className="text-[var(--color-accent)] text-xs hover:text-[var(--color-text)] transition-colors"
+                aria-label="Save current layout"
+              >
+                + Save
+              </button>
+            )}
           </div>
 
           {/* Save form */}
@@ -510,6 +516,8 @@ export default function DashboardHeader() {
         </button>
 
         <LayoutsDropdown />
+
+        <UpgradeBadge />
 
         <div className="w-px h-5 bg-[var(--color-border)] mx-1" aria-hidden="true" />
 

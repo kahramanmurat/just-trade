@@ -11,6 +11,8 @@ import { useTickStream, getRealtimeProvider } from '@/hooks/useTickStream'
 import { useAlertEvaluator } from '@/hooks/useAlertEvaluator'
 import AlertToastContainer from '@/components/AlertToastContainer'
 import { generateOhlcv } from '@/lib/chart/generateOhlcv'
+import { useSubscriptionStore } from '@/lib/store/subscriptionStore'
+import type { SubscriptionWithLimitsResponse } from '@/lib/api/types'
 
 // Mobile notice — shown below 768px
 function MobileBanner() {
@@ -76,11 +78,27 @@ function AlertEvaluatorManager() {
   return null
 }
 
+function SubscriptionManager() {
+  const setSubscription = useSubscriptionStore((s) => s.setSubscription)
+
+  useEffect(() => {
+    fetch('/api/subscription')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: SubscriptionWithLimitsResponse | null) => {
+        if (data) setSubscription(data)
+      })
+      .catch(() => {})
+  }, [setSubscription])
+
+  return null
+}
+
 export default function DashboardShell() {
   return (
     <div className="flex flex-col h-screen bg-[var(--color-bg)] overflow-hidden">
       <TickStreamManager />
       <AlertEvaluatorManager />
+      <SubscriptionManager />
       <DashboardHeader />
       <MobileBanner />
       <div className="flex flex-1 min-h-0">

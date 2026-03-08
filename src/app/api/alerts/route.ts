@@ -6,6 +6,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db/prisma'
 import { resolveUser } from '@/lib/db/resolveUser'
+import { getUserPlan } from '@/lib/db/getUserPlan'
+import { getLimitsForPlan } from '@/lib/api/tierLimits'
 import type { AlertsListResponse, AlertResponse, ApiError } from '@/lib/api/types'
 
 export async function GET() {
@@ -93,6 +95,21 @@ export async function POST(request: Request) {
   }
 
   const { symbol, condition, threshold } = parsed.data
+
+  // Tier enforcement
+  const plan = await getUserPlan(user.id)
+  const limits = getLimitsForPlan(plan)
+  const currentCount = await prisma.alert.count({ where: { userId: user.id } })
+
+  if (currentCount >= limits.maxAlerts) {
+    return NextResponse.json<ApiError>(
+      {
+        error: `Alert limit reached (${limits.maxAlerts}). Upgrade your plan for more alerts.`,
+        code: 'LIMIT_REACHED',
+      },
+      { status: 403 }
+    )
+  }
 
   const alert = await prisma.alert.create({
     data: {

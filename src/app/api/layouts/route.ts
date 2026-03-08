@@ -6,6 +6,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db/prisma'
 import { resolveUser } from '@/lib/db/resolveUser'
+import { getUserPlan } from '@/lib/db/getUserPlan'
+import { getLimitsForPlan } from '@/lib/api/tierLimits'
 import type {
   LayoutsListResponse,
   LayoutResponse,
@@ -134,6 +136,21 @@ export async function POST(request: Request) {
   }
 
   const { name, symbol, timeframe, isDefault, config } = parsed.data
+
+  // Tier enforcement
+  const plan = await getUserPlan(user.id)
+  const limits = getLimitsForPlan(plan)
+  const currentCount = await prisma.savedLayout.count({ where: { userId: user.id } })
+
+  if (currentCount >= limits.maxLayouts) {
+    return NextResponse.json<ApiError>(
+      {
+        error: `Layout limit reached (${limits.maxLayouts}). Upgrade your plan for more layouts.`,
+        code: 'LIMIT_REACHED',
+      },
+      { status: 403 }
+    )
+  }
 
   // If this layout is set as default, unset any existing defaults for this user
   if (isDefault) {

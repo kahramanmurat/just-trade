@@ -7,6 +7,8 @@ import { z } from 'zod'
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client'
 import { prisma } from '@/lib/db/prisma'
 import { resolveUser } from '@/lib/db/resolveUser'
+import { getUserPlan } from '@/lib/db/getUserPlan'
+import { getLimitsForPlan } from '@/lib/api/tierLimits'
 import type { ApiError } from '@/lib/api/types'
 
 const bodySchema = z.object({
@@ -80,6 +82,26 @@ export async function POST(request: Request) {
       { error: 'Watchlist not found', code: 'NOT_FOUND' },
       { status: 404 }
     )
+  }
+
+  // Tier enforcement — check watchlist item limit
+  const user = await resolveUser(clerkId)
+  if (user) {
+    const plan = await getUserPlan(user.id)
+    const limits = getLimitsForPlan(plan)
+    const currentCount = await prisma.watchlistItem.count({
+      where: { watchlistId: watchlist.id },
+    })
+
+    if (currentCount >= limits.maxWatchlistItems) {
+      return NextResponse.json<ApiError>(
+        {
+          error: `Watchlist item limit reached (${limits.maxWatchlistItems}). Upgrade your plan for more symbols.`,
+          code: 'LIMIT_REACHED',
+        },
+        { status: 403 }
+      )
+    }
   }
 
   // Check if symbol already exists in watchlist

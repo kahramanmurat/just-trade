@@ -38,6 +38,7 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 - **Unimplemented tools** — trendline, fibonacci, rectangle, text, magnet shown with "coming soon" tooltip and disabled state
 - **Indicators v1** — SMA (20), EMA (50) as chart overlays; RSI (14) in separate lower pane; add/remove/toggle from Indicators tab
 - **Realtime price updates** — mock tick simulator feeds live prices to chart (updates last candle) and watchlist; connection status in header
+- **Saved chart layouts v1** — save/load/delete named layouts storing symbol, timeframe, indicators, drawings, and panel state; default layout support
 - **Price alerts v1** — create gt/lt price alerts, client-side evaluation against tick store, in-app toast notifications, alerts tab with create/delete/status
 - **Clerk authentication** — sign-in, sign-up, protected `/dashboard`, webhook endpoint for user sync
 - **Local dev user resolution** — `resolveUser` helper auto-creates DB user from Clerk session if webhook hasn't fired; handles P2002 race conditions
@@ -188,6 +189,31 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 - `alertStore` — holds alerts array and toasts array
 - Actions: setAlerts, addAlert, removeAlert, markTriggered, addToast, dismissToast
 
+### Sprint 5 — Saved Chart Layouts v1 ✅
+
+#### Layout Persistence
+- `SavedLayout` model in Prisma with `config_json` JSONB column (symbol, timeframe, indicators, drawings, panel state)
+- `GET /api/layouts` — list user's saved layouts (sorted by default first, then updatedAt desc)
+- `POST /api/layouts` — create layout with Zod validation (name, symbol, timeframe, config)
+- `DELETE /api/layouts/[id]` — delete layout (ownership check)
+- `PATCH /api/layouts/[id]` — set layout as default (unsets previous default)
+
+#### Layout Save/Load
+- `LayoutsDropdown` in DashboardHeader — save form with name input and "set as default" checkbox
+- Load restores: symbol, timeframe, indicators (type/period/visible/color), horizontal line drawings, right panel tab and open state
+- Optimistic delete with API rollback on failure
+- Loading, error, and empty states
+
+#### Drawing State Tracking
+- `HLineDrawing` type and `drawings` array added to chartStore
+- Horizontal line placements tracked in store for save/restore
+- Eraser clears drawings from both chart and store
+- ChartContainer restores drawings from store when loading a layout
+
+#### Chart Store Additions
+- `setIndicators`, `addDrawing`, `clearDrawings`, `setDrawings`, `setRightPanelOpen` actions
+- Layout load sets all chart state atomically via store actions
+
 ### Sprint 3c — Realtime Price Updates v1 ✅
 
 #### Realtime Architecture
@@ -249,6 +275,8 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 | `src/components/AlertToastContainer.tsx` | Toast notifications for triggered alerts |
 | `src/app/api/alerts/route.ts` | Alert list + create endpoints |
 | `src/app/api/alerts/[id]/route.ts` | Alert delete + trigger endpoints |
+| `src/app/api/layouts/route.ts` | Layout list + create endpoints |
+| `src/app/api/layouts/[id]/route.ts` | Layout delete + set-default endpoints |
 | `prisma/schema.prisma` | Database schema |
 
 ### Zustand Stores
@@ -261,6 +289,7 @@ activeTool: DrawingTool   — current drawing tool (default: 'select')
 rightPanelTab: RightPanelTab — active right panel tab (default: 'watchlist')
 rightPanelOpen: boolean   — right panel visibility (default: true)
 indicators: IndicatorConfig[] — active indicators with type, period, visible, color
+drawings: HLineDrawing[]  — tracked horizontal line drawings for layout save/restore
 ```
 
 #### tickStore
@@ -282,6 +311,7 @@ toasts: AlertToast[]     — active toast notifications for triggered alerts
 - **Watchlist** — `id`, `userId`, `name`, `isDefault`, `createdAt`
 - **WatchlistItem** — `id`, `watchlistId`, `symbol`, `displayOrder`
 - **Alert** — `id`, `userId`, `symbol`, `condition`, `threshold`, `isActive`, `triggered`, `triggeredAt`, `createdAt`
+- **SavedLayout** — `id`, `userId`, `name`, `symbol`, `timeframe`, `isDefault`, `configJson`, `createdAt`, `updatedAt`
 
 ---
 
@@ -312,11 +342,11 @@ pnpm dev
 
 1. **TanStack React Query** — replace raw `fetch` calls with React Query for caching, refetching, optimistic updates
 2. **Polygon WebSocket integration** — swap mock tick provider for real Polygon WebSocket with Clerk JWT auth
-3. **Saved layouts** — persist chart layout (symbol, timeframe, indicators, drawings) per user
-4. **Drawing tools v2** — trendline, fibonacci retracement, rectangle annotation
-5. **Indicator settings** — editable period/color per indicator, persist indicator config
-6. **Stripe integration** — subscription checkout, billing portal, tier enforcement
-7. **Subscription tier enforcement** — restrict indicators, watchlists, alerts, data delay by plan
-8. **Alerts v2** — email/SMS notifications, cron worker for server-side evaluation, indicator-based alerts
+3. **Drawing tools v2** — trendline, fibonacci retracement, rectangle annotation
+4. **Indicator settings** — editable period/color per indicator, persist indicator config
+5. **Stripe integration** — subscription checkout, billing portal, tier enforcement
+6. **Subscription tier enforcement** — restrict indicators, watchlists, alerts, data delay by plan
+7. **Alerts v2** — email/SMS notifications, cron worker for server-side evaluation, indicator-based alerts
+8. **Saved layouts v2** — layout sharing, layout update/overwrite, auto-load default layout on startup
 9. **Testing** — Vitest unit tests, Playwright E2E, accessibility audits
 10. **Deployment** — Vercel (frontend), Railway (WebSocket service), staging environment
