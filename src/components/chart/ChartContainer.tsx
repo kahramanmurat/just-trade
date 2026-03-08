@@ -5,6 +5,7 @@ import {
   createChart,
   createTextWatermark,
   CandlestickSeries,
+  LineSeries,
   CrosshairMode,
   ColorType,
   LineStyle,
@@ -14,7 +15,8 @@ import {
   type IPriceLine,
   type UTCTimestamp,
 } from 'lightweight-charts'
-import { useChartStore } from '@/lib/store/chartStore'
+import { useChartStore, type IndicatorConfig } from '@/lib/store/chartStore'
+import { calcSMA, calcEMA, calcRSI } from '@/lib/chart/indicators'
 import type { OhlcvCandle, OhlcvResponse } from '@/lib/api/types'
 
 type OhlcvLegend = {
@@ -58,14 +60,42 @@ function legendFromCandle(c: OhlcvCandle): OhlcvLegend {
   }
 }
 
+function computeIndicator(
+  candles: OhlcvCandle[],
+  config: IndicatorConfig
+): { time: number; value: number }[] {
+  const closes = candles.map((c) => ({ time: c.time, close: c.close }))
+
+  let points: { time: number; value: number }[]
+
+  switch (config.type) {
+    case 'SMA':
+      points = calcSMA(closes, config.period)
+      break
+    case 'EMA':
+      points = calcEMA(closes, config.period)
+      break
+    case 'RSI':
+      points = calcRSI(closes, config.period)
+      break
+    default:
+      return []
+  }
+
+  // Filter out NaN values
+  return points.filter((p) => !isNaN(p.value))
+}
+
 export default function ChartContainer() {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const priceLinesRef = useRef<IPriceLine[]>([])
   const activeToolRef = useRef<string>('select')
+  const indicatorSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map())
+  const candlesRef = useRef<OhlcvCandle[]>([])
 
-  const { symbol, timeframe, activeTool, setActiveTool } = useChartStore()
+  const { symbol, timeframe, activeTool, setActiveTool, indicators } = useChartStore()
   const [legend, setLegend] = useState<OhlcvLegend | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -176,6 +206,8 @@ export default function ChartContainer() {
       .then((candles) => {
         if (abortController.signal.aborted) return
 
+        candlesRef.current = candles
+
         series.setData(
           candles.map((c) => ({
             time: c.time as UTCTimestamp,
@@ -253,6 +285,8 @@ export default function ChartContainer() {
     })
     resizeObserver.observe(container)
 
+    const indicatorSeries = indicatorSeriesRef.current
+
     return () => {
       abortController.abort()
       resizeObserver.disconnect()
@@ -260,9 +294,85 @@ export default function ChartContainer() {
       chartRef.current = null
       seriesRef.current = null
       priceLinesRef.current = []
+      indicatorSeries.clear()
+      candlesRef.current = []
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, timeframe])
+
+  // Sync indicator series when indicators config or loading state changes
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart || loading || candlesRef.current.length === 0) return
+
+    const candles = candlesRef.current
+    const existingSeries = indicatorSeriesRef.current
+
+    // Determine which indicator IDs should currently have a series
+    const desiredIds = new Set(
+      indicators.filter((ind) => ind.visible).map((ind) => ind.id)
+    )
+
+    // Remove series for indicators that are no longer visible or removed
+    for (const [id, lineSeries] of existingSeries) {
+      if (!desiredIds.has(id)) {
+        chart.removeSeries(lineSeries)
+        existingSeries.delete(id)
+      }
+    }
+
+    // Add or update series for visible indicators
+    for (const ind of indicators) {
+      if (!ind.visible) continue
+
+      const points = computeIndicator(candles, ind)
+      const data = points.map((p) => ({
+        time: p.time as UTCTimestamp,
+        value: p.value,
+      }))
+
+      const existing = existingSeries.get(ind.id)
+      if (existing) {
+        // Update data on existing series
+        existing.setData(data)
+        existing.applyOptions({ color: ind.color })
+      } else {
+        // Create new series
+        const isRSI = ind.type === 'RSI'
+
+        let paneIndex: number | undefined
+        if (isRSI) {
+          // RSI goes in a separate pane — find or create one
+          const panes = chart.panes()
+          if (panes.length < 2) {
+            const rsiPane = chart.addPane()
+            rsiPane.setStretchFactor(0.25)
+            // Shrink main pane proportionally
+            panes[0].setStretchFactor(0.75)
+          }
+          paneIndex = chart.panes().length - 1
+        }
+
+        const lineSeries = chart.addSeries(LineSeries, {
+          color: ind.color,
+          lineWidth: 1,
+          priceScaleId: isRSI ? 'rsi' : undefined,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        }, paneIndex)
+
+        if (isRSI) {
+          // Set RSI scale to 0-100
+          lineSeries.priceScale().applyOptions({
+            scaleMargins: { top: 0.1, bottom: 0.1 },
+          })
+        }
+
+        lineSeries.setData(data)
+        existingSeries.set(ind.id, lineSeries)
+      }
+    }
+  }, [indicators, loading])
 
   const priceColor = legend?.up ? 'text-[var(--color-up)]' : 'text-[var(--color-down)]'
 
