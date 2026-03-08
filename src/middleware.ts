@@ -1,14 +1,29 @@
-// Clerk authentication middleware — protects /dashboard and /api routes.
-// TODO(Backend API Agent): replace this passthrough with clerkMiddleware() after installing @clerk/nextjs.
+// src/middleware.ts
+// Clerk authentication middleware.
+// /dashboard/* → protected (requires sign-in).
+// /api/webhooks/* → public (Stripe, Clerk webhooks verify their own signatures).
+// All other /api/* → protected.
 
-import type { NextRequest } from 'next/server'
-import { NextResponse } from 'next/server'
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-export function middleware(_request: NextRequest) {
-  // Passthrough — Clerk middleware will be wired here once @clerk/nextjs is installed.
-  return NextResponse.next()
-}
+const isPublicRoute = createRouteMatcher([
+  '/',
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+  '/api/webhooks(.*)',
+])
+
+export default clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) {
+    await auth.protect()
+  }
+})
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/:path*'],
+  matcher: [
+    // Skip Next.js internals and static files.
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run for API routes.
+    '/(api|trpc)(.*)',
+  ],
 }
