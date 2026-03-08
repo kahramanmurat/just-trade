@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.1",
+    "@prisma/adapter-pg": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "@tanstack/react-query": "^5.90.21",
     "next": "16.1.6",
+    "pg": "^8.20.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "svix": "^1.86.0",
