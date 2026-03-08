@@ -12,9 +12,9 @@ This file is read by Claude Code at the start of every session. It defines the p
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 14+ (App Router) |
+| Framework | Next.js 16+ (App Router) |
 | Language | TypeScript (strict mode) |
-| Styling | Tailwind CSS |
+| Styling | Tailwind CSS v4 |
 | Charting | `lightweight-charts` (TradingView open-source) |
 | State | Zustand (global UI) + TanStack React Query (server data) |
 | Auth | Clerk (`@clerk/nextjs`) |
