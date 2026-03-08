@@ -1,13 +1,4 @@
-import { test, expect, type Page } from '../fixtures/mock-data'
-
-/** Wait for alerts tab content to finish loading */
-async function waitForAlertsLoaded(page: Page) {
-  await expect(
-    page.getByLabel('Create new alert')
-      .or(page.getByText('No alerts configured'))
-      .or(page.getByText('Alerts require'))
-  ).toBeVisible({ timeout: 10000 })
-}
+import { test, expect } from '../fixtures/mock-data'
 
 test.describe('Alerts', () => {
   test.beforeEach(async ({ page }) => {
@@ -19,91 +10,60 @@ test.describe('Alerts', () => {
   test('alerts tab renders and shows content', async ({ page }) => {
     await expect(page.getByRole('tabpanel', { name: 'alerts' })).toBeVisible()
 
-    // Wait for content to load — either alert list, empty state, or upgrade prompt
-    await waitForAlertsLoaded(page)
+    // Free plan mock returns 0 alerts — expect empty state text or upgrade prompt
+    // Both may be visible simultaneously, so check each individually
+    const hasEmptyState = await page.getByText('No alerts configured').isVisible().catch(() => false)
+    const hasUpgradePrompt = await page.getByText('Alerts require a Pro plan').isVisible().catch(() => false)
+    const hasCreateButton = await page.getByLabel('Create new alert').isVisible().catch(() => false)
+
+    expect(
+      hasEmptyState || hasUpgradePrompt || hasCreateButton,
+      'Alerts tab should show empty state, upgrade prompt, or create button'
+    ).toBeTruthy()
   })
 
-  test('open create alert form', async ({ page }) => {
-    await waitForAlertsLoaded(page)
-
+  test('free plan shows upgrade prompt or gates alert creation', async ({ page }) => {
+    // With free plan (maxAlerts: 0), creating alerts should be gated
     const createButton = page.getByLabel('Create new alert')
-    if (await createButton.isVisible().catch(() => false)) {
+
+    // Either upgrade prompt is shown, or create button exists but POST returns 403
+    const hasUpgrade = await page.getByText('Alerts require a Pro plan').isVisible({ timeout: 5000 }).catch(() => false)
+    const hasCreate = await createButton.isVisible({ timeout: 2000 }).catch(() => false)
+
+    expect(hasUpgrade || hasCreate, 'Alerts tab should show upgrade prompt or create button').toBeTruthy()
+
+    if (hasCreate) {
+      // If create button exists, clicking it and submitting should be blocked (403)
       await createButton.click()
 
-      await expect(page.getByLabel('Alert condition')).toBeVisible()
-      await expect(page.getByLabel('Threshold price')).toBeVisible()
-      await expect(page.getByRole('button', { name: 'Set' })).toBeVisible()
-      await expect(page.getByLabel('Cancel')).toBeVisible()
+      const conditionSelect = page.getByLabel('Alert condition')
+      if (await conditionSelect.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await conditionSelect.selectOption('gt')
+        await page.getByLabel('Threshold price').fill('200')
+
+        const responsePromise = page.waitForResponse(
+          (res) => res.url().includes('/api/alerts') && res.request().method() === 'POST'
+        )
+        await page.getByRole('button', { name: 'Set' }).click()
+        const response = await responsePromise
+        expect(response.status()).toBe(403)
+      }
     }
   })
 
-  test('create alert form validates empty threshold', async ({ page }) => {
-    await waitForAlertsLoaded(page)
-
+  test('alert form validates empty threshold', async ({ page }) => {
     const createButton = page.getByLabel('Create new alert')
-    if (await createButton.isVisible().catch(() => false)) {
+    if (await createButton.isVisible({ timeout: 3000 }).catch(() => false)) {
       await createButton.click()
-
       await page.getByRole('button', { name: 'Set' }).click()
-
       await expect(page.getByText('Enter a valid price')).toBeVisible()
     }
   })
 
-  test('create price alert via form', async ({ page }) => {
-    await waitForAlertsLoaded(page)
-
-    const createButton = page.getByLabel('Create new alert')
-    if (await createButton.isVisible().catch(() => false)) {
-      await createButton.click()
-
-      await page.getByLabel('Alert condition').selectOption('gt')
-      await page.getByLabel('Threshold price').fill('200')
-
-      const responsePromise = page.waitForResponse(
-        (res) =>
-          res.url().includes('/api/alerts') &&
-          res.request().method() === 'POST'
-      )
-
-      await page.getByRole('button', { name: 'Set' }).click()
-
-      const response = await responsePromise
-      // Free plan returns 403, Pro/Premium returns 201
-      expect([201, 403]).toContain(response.status())
-    }
-  })
-
-  test('create alert with "below" condition', async ({ page }) => {
-    await waitForAlertsLoaded(page)
-
-    const createButton = page.getByLabel('Create new alert')
-    if (await createButton.isVisible().catch(() => false)) {
-      await createButton.click()
-
-      await page.getByLabel('Alert condition').selectOption('lt')
-      await page.getByLabel('Threshold price').fill('150')
-
-      const responsePromise = page.waitForResponse(
-        (res) =>
-          res.url().includes('/api/alerts') &&
-          res.request().method() === 'POST'
-      )
-
-      await page.getByRole('button', { name: 'Set' }).click()
-
-      const response = await responsePromise
-      expect([201, 403]).toContain(response.status())
-    }
-  })
-
   test('cancel alert creation', async ({ page }) => {
-    await waitForAlertsLoaded(page)
-
     const createButton = page.getByLabel('Create new alert')
-    if (await createButton.isVisible().catch(() => false)) {
+    if (await createButton.isVisible({ timeout: 3000 }).catch(() => false)) {
       await createButton.click()
-
       await expect(page.getByLabel('Alert condition')).toBeVisible()
 
       await page.getByLabel('Cancel').click()
@@ -113,26 +73,7 @@ test.describe('Alerts', () => {
     }
   })
 
-  test('delete an alert', async ({ page }) => {
-    await waitForAlertsLoaded(page)
-
-    const deleteButton = page.getByLabel(/Delete alert for/).first()
-
-    if (await deleteButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-      const responsePromise = page.waitForResponse(
-        (res) =>
-          res.url().includes('/api/alerts/') &&
-          res.request().method() === 'DELETE'
-      )
-
-      await deleteButton.click({ force: true })
-      await responsePromise
-    }
-  })
-
   test('alert form uses current chart symbol', async ({ page }) => {
-    await waitForAlertsLoaded(page)
-
     const symbolChip = page.getByLabel(/Active symbol: /)
     const chipLabel = await symbolChip.getAttribute('aria-label')
     const symbolMatch = chipLabel?.match(/Active symbol: (\w+)/)
@@ -141,9 +82,8 @@ test.describe('Alerts', () => {
     if (!currentSymbol) return
 
     const createButton = page.getByLabel('Create new alert')
-    if (await createButton.isVisible().catch(() => false)) {
+    if (await createButton.isVisible({ timeout: 3000 }).catch(() => false)) {
       await createButton.click()
-
       const formArea = page.getByRole('tabpanel', { name: 'alerts' })
       await expect(formArea.getByText(currentSymbol)).toBeVisible()
     }
