@@ -5,6 +5,7 @@ import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
+import { checkRateLimit } from '@/lib/api/rateLimit'
 import { resolveUser } from '@/lib/db/resolveUser'
 import type { ApiError, AiChatResponse } from '@/lib/api/types'
 
@@ -73,6 +74,9 @@ export async function POST(request: Request) {
   if (!clerkId) {
     return NextResponse.json<ApiError>({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const rl = await checkRateLimit(clerkId, true)
+  if (rl.limited) return rl.response
 
   const user = await resolveUser(clerkId)
   if (!user) {

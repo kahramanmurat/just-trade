@@ -4,6 +4,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client'
+import { checkRateLimit } from '@/lib/api/rateLimit'
 import { prisma } from '@/lib/db/prisma'
 import { resolveUser } from '@/lib/db/resolveUser'
 import { findSymbol } from '@/lib/api/symbols'
@@ -16,6 +17,9 @@ export async function GET() {
   if (!clerkId) {
     return NextResponse.json<ApiError>({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const rl = await checkRateLimit(clerkId, true)
+  if (rl.limited) return rl.response
 
   // Resolve internal user ID — auto-creates from Clerk session if webhook hasn't fired
   const user = await resolveUser(clerkId)

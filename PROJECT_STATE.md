@@ -441,6 +441,80 @@ pnpm dev
 
 ---
 
+## Phase 1 — Stabilize ✅
+
+> Completed: 2026-03-08
+
+#### Test Infrastructure
+- Vitest configured with jsdom environment, `@` path aliases, and v8 coverage provider (`vitest.config.ts`)
+- Playwright configured with chromium, visual regression, and accessibility projects (`playwright.config.ts`)
+- Test setup file with mock environment variables (`tests/setup.ts`)
+- 7 test scripts added to `package.json`: `test`, `test:watch`, `test:coverage`, `test:e2e`, `test:visual`, `test:a11y`, `test:ci`
+- Dev dependencies added: `vitest`, `@vitest/coverage-v8`, `@playwright/test`, `@axe-core/playwright`, `@testing-library/react`, `@testing-library/dom`, `jsdom`
+
+#### Initial Unit Tests
+- 16 indicator tests (`tests/unit/lib/chart/indicators.test.ts`): SMA correctness, EMA seed + formula, RSI edge cases (all-up, all-down, alternating), timestamp alignment, value range validation
+- 2 rate limiter tests (`tests/unit/lib/api/rateLimit.test.ts`): graceful degradation when Redis is not configured
+- All 18 tests pass; lint and typecheck clean
+
+#### Redis Rate Limiting
+- `src/lib/api/rateLimit.ts` — fixed-window counter using Upstash Redis (100 req/min authenticated, 20 req/min unauthenticated)
+- Returns 429 with `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining` headers when exceeded
+- Graceful degradation: allows all requests when Redis is not configured
+- Applied to `GET /api/ohlcv`, `GET /api/alerts`, `POST /api/alerts`, `POST /api/checkout`
+
+#### Accessibility — Focus-Visible Ring
+- Global `:focus-visible` rule added to `src/app/globals.css` (2px solid accent, 2px offset)
+- `:focus:not(:focus-visible)` removes outline for mouse users
+- Applies to all interactive elements project-wide without per-component changes
+
+#### Accessibility — Symbol Search Modal Focus Trap
+- Focus trap added to `SymbolSearchModal.tsx` — Tab/Shift+Tab cycle within the modal
+- Prevents keyboard focus from escaping to elements behind the modal overlay
+
+#### Stripe Checkout Race Condition Fix
+- `POST /api/checkout` now handles missing subscription row (not just placeholder customer ID)
+- Condition broadened: creates Stripe customer if `sub` is null, `stripeCustomerId` is empty, or starts with `pending:`
+- Uses `prisma.subscription.upsert` instead of `update` to atomically create the row if it doesn't exist
+
+#### Alert Threshold Precision Fix
+- `POST /api/alerts` Zod schema now accepts `number | string` for `threshold`
+- Coerces to string before passing to Prisma `Decimal(18,8)` field, avoiding JavaScript float truncation
+- Backward compatible: existing clients sending `number` still work; new clients can send `"123456789.12345678"` for full precision
+
+## Phase 1 Week 2 — Harden ✅
+
+> Completed: 2026-03-08
+
+#### Integration Tests
+- `tests/integration/api/watchlists.test.ts` — 4 tests: 401 unauth, 404 user not found, return existing watchlist, auto-create default watchlist
+- `tests/integration/api/alerts.test.ts` — 8 tests: 401 unauth, return alerts, 400 invalid body, 403 free user blocked, 201 pro creates, 403 at limit, string threshold precision
+- `tests/integration/api/layouts.test.ts` — 5 tests: 401 unauth, return layouts, 403 free user blocked, 201 pro creates, 400 invalid body
+- `tests/helpers/apiTestUtils.ts` — shared test helpers (mockRequest, getResponseJson, mock IDs)
+
+#### Security Tests
+- `tests/security/auth-bypass.test.ts` — 12 tests: every protected route returns 401 without auth (ohlcv, alerts, watchlists, items, layouts, subscription, checkout, billing-portal, ai/chat)
+- `tests/security/idor.test.ts` — 4 tests: accessing another user's alerts/layouts via [id] routes returns 404 (not 403), confirming userId scoping
+- `tests/security/webhook-signature.test.ts` — 5 tests: Stripe webhook rejects missing/invalid signatures, accepts valid; Clerk webhook rejects missing/invalid svix headers
+
+#### Focus Trap — AiAssistant Panel
+- Focus trap added to `AiAssistant.tsx` — same pattern as SymbolSearchModal
+- Tab/Shift+Tab cycles focus within the floating dialog panel (input, buttons, quick prompts)
+
+#### Rate Limiting — All API Routes
+- `checkRateLimit` added to all remaining authenticated API routes (12 handler functions across 8 files):
+  - `GET /api/watchlists`, `POST /api/watchlists/items`, `DELETE /api/watchlists/items`
+  - `GET /api/layouts`, `POST /api/layouts`, `DELETE /api/layouts/[id]`, `PATCH /api/layouts/[id]`
+  - `DELETE /api/alerts/[id]`, `PATCH /api/alerts/[id]`
+  - `GET /api/subscription`, `POST /api/billing-portal`, `POST /api/ai/chat`
+
+#### GitHub Actions CI Pipeline
+- `.github/workflows/ci.yml` — triggers on push to main and PRs
+- Jobs: install (pnpm + corepack), lint, typecheck, unit tests with coverage, production build
+- Mock env vars for CI (Clerk, Stripe, DB, Anthropic)
+
+---
+
 ## Next Development Steps
 
 1. **TanStack React Query** — replace raw `fetch` calls with React Query for caching, refetching, optimistic updates
@@ -449,5 +523,5 @@ pnpm dev
 4. **Indicator settings** — editable period/color per indicator, persist indicator config
 5. **Alerts v2** — email/SMS notifications, cron worker for server-side evaluation, indicator-based alerts
 6. **Saved layouts v2** — layout sharing, layout update/overwrite, auto-load default layout on startup
-7. **Testing** — Vitest unit tests, Playwright E2E, accessibility audits
+7. **Testing v2** — integration tests for all API routes, E2E tests for critical flows, security tests, accessibility audits
 8. **Deployment** — Vercel (frontend), Railway (WebSocket service), staging environment

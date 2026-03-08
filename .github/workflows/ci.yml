@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_mock
+      CLERK_SECRET_KEY: sk_test_mock
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
+      STRIPE_SECRET_KEY: sk_test_mock
+      STRIPE_WEBHOOK_SECRET: whsec_test_mock
+      ANTHROPIC_API_KEY: sk-ant-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm tsc --noEmit
+
+      - name: Unit tests with coverage
+        run: pnpm test:coverage
+
+      - name: Build
+        run: pnpm build

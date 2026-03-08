@@ -3,6 +3,7 @@
 
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { checkRateLimit } from '@/lib/api/rateLimit'
 import { prisma } from '@/lib/db/prisma'
 import { resolveUser } from '@/lib/db/resolveUser'
 import type { ApiError } from '@/lib/api/types'
@@ -14,6 +15,9 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
   if (!clerkId) {
     return NextResponse.json<ApiError>({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const rl = await checkRateLimit(clerkId, true)
+  if (rl.limited) return rl.response
 
   const user = await resolveUser(clerkId)
   if (!user) {
@@ -47,6 +51,9 @@ export async function PATCH(_request: Request, { params }: RouteParams) {
   if (!clerkId) {
     return NextResponse.json<ApiError>({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const rl = await checkRateLimit(clerkId, true)
+  if (rl.limited) return rl.response
 
   const user = await resolveUser(clerkId)
   if (!user) {

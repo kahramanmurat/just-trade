@@ -17,6 +17,7 @@ export default function AiAssistant() {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -26,6 +27,31 @@ export default function AiAssistant() {
   // Focus input when panel opens
   useEffect(() => {
     if (open) inputRef.current?.focus()
+  }, [open])
+
+  // Focus trap — cycle Tab between first and last focusable elements
+  useEffect(() => {
+    if (!open) return
+    const panel = panelRef.current
+    if (!panel) return
+    function handleTab(e: KeyboardEvent) {
+      if (e.key !== 'Tab') return
+      const focusable = panel!.querySelectorAll<HTMLElement>(
+        'input, button, [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', handleTab)
+    return () => document.removeEventListener('keydown', handleTab)
   }, [open])
 
   const sendMessage = useCallback(async (text: string) => {
@@ -84,6 +110,7 @@ export default function AiAssistant() {
 
   return (
     <div
+      ref={panelRef}
       className="fixed bottom-4 right-4 z-50 w-[380px] max-h-[520px] flex flex-col bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-2xl overflow-hidden"
       role="dialog"
       aria-label="AI Assistant"
