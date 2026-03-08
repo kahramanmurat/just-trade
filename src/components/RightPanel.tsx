@@ -3,18 +3,20 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useChartStore, type RightPanelTab, type IndicatorType } from '@/lib/store/chartStore'
 import { useTickStore, type PriceTick } from '@/lib/store/tickStore'
+import { useAlertStore } from '@/lib/store/alertStore'
 import { SYMBOLS } from '@/lib/api/symbols'
-import type { WatchlistResponse, WatchlistItemResponse } from '@/lib/api/types'
+import type {
+  WatchlistResponse,
+  WatchlistItemResponse,
+  AlertsListResponse,
+  AlertResponse,
+  AlertCondition,
+} from '@/lib/api/types'
 
 const TABS: { id: RightPanelTab; label: string }[] = [
   { id: 'watchlist', label: 'Watchlist' },
   { id: 'alerts', label: 'Alerts' },
   { id: 'indicators', label: 'Indicators' },
-]
-
-const ALERT_ITEMS = [
-  { symbol: 'AAPL', condition: 'Price above', threshold: '$190.00', status: 'active' as const },
-  { symbol: 'TSLA', condition: 'Price below', threshold: '$230.00', status: 'triggered' as const },
 ]
 
 const AVAILABLE_INDICATORS: { type: IndicatorType; label: string }[] = [
@@ -268,54 +270,225 @@ function WatchlistTab() {
   )
 }
 
+function CreateAlertForm({ onCreated }: { onCreated: (alert: AlertResponse) => void }) {
+  const symbol = useChartStore((s) => s.symbol)
+  const [condition, setCondition] = useState<AlertCondition>('gt')
+  const [threshold, setThreshold] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+
+  const handleSubmit = async () => {
+    const value = parseFloat(threshold)
+    if (isNaN(value) || value <= 0) {
+      setError('Enter a valid price')
+      return
+    }
+
+    setError(null)
+    setSubmitting(true)
+
+    try {
+      const res = await fetch('/api/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol, condition, threshold: value }),
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Failed to create' }))
+        setError(body.error ?? `HTTP ${res.status}`)
+        return
+      }
+
+      const alert: AlertResponse = await res.json()
+      onCreated(alert)
+      setThreshold('')
+      setOpen(false)
+    } catch {
+      setError('Network error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="text-[var(--color-accent)] text-xs hover:text-[var(--color-text)] transition-colors"
+        aria-label="Create new alert"
+      >
+        + New
+      </button>
+    )
+  }
+
+  return (
+    <div className="px-3 py-2 border-b border-[var(--color-border)] space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-[var(--color-text)] text-xs font-mono font-medium">{symbol}</span>
+        <select
+          value={condition}
+          onChange={(e) => setCondition(e.target.value as AlertCondition)}
+          className="bg-[var(--color-surface-2)] text-[var(--color-text)] text-xs border border-[var(--color-border)] rounded px-1.5 py-1"
+          aria-label="Alert condition"
+        >
+          <option value="gt">above</option>
+          <option value="lt">below</option>
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          step="any"
+          value={threshold}
+          onChange={(e) => setThreshold(e.target.value)}
+          placeholder="Price..."
+          className="flex-1 bg-[var(--color-surface-2)] text-[var(--color-text)] text-xs font-mono border border-[var(--color-border)] rounded px-2 py-1 placeholder:text-[var(--color-text-muted)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          aria-label="Threshold price"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSubmit()
+          }}
+        />
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="bg-[var(--color-accent)] text-white text-xs px-2.5 py-1 rounded hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          {submitting ? '...' : 'Set'}
+        </button>
+        <button
+          onClick={() => {
+            setOpen(false)
+            setError(null)
+          }}
+          className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-sm leading-none"
+          aria-label="Cancel"
+        >
+          ×
+        </button>
+      </div>
+      {error && <p className="text-[var(--color-down)] text-[10px] font-mono">{error}</p>}
+    </div>
+  )
+}
+
 function AlertsTab() {
+  const { alerts, setAlerts, addAlert, removeAlert } = useAlertStore()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch('/api/alerts', { cache: 'no-store' })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ error: 'Unknown error' }))
+          throw new Error(body.error ?? `HTTP ${res.status}`)
+        }
+        const data: AlertsListResponse = await res.json()
+        setAlerts(data.alerts)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load alerts')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAlerts()
+  }, [setAlerts])
+
+  const handleDelete = async (id: string) => {
+    removeAlert(id)
+    try {
+      const res = await fetch(`/api/alerts/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const res2 = await fetch('/api/alerts', { cache: 'no-store' })
+        if (res2.ok) {
+          const data: AlertsListResponse = await res2.json()
+          setAlerts(data.alerts)
+        }
+      }
+    } catch {
+      // Silently fail — alert already removed from UI
+    }
+  }
+
+  // Sort: active first, then triggered (by createdAt desc)
+  const sortedAlerts = [...alerts].sort((a, b) => {
+    if (a.triggered !== b.triggered) return a.triggered ? 1 : -1
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-border)] shrink-0">
         <span className="text-[var(--color-text-secondary)] text-[10px] font-medium uppercase tracking-widest">
-          Active
+          Alerts
         </span>
-        <button
-          className="text-[var(--color-accent)] text-xs hover:text-[var(--color-text)] transition-colors"
-          aria-label="Create new alert"
-        >
-          + New
-        </button>
+        <CreateAlertForm onCreated={addAlert} />
       </div>
 
-      <ul className="flex-1 overflow-y-auto" role="list" aria-label="Alert items">
-        {ALERT_ITEMS.map((alert, i) => (
-          <li key={i}>
-            <div className="flex items-start gap-2 px-3 py-2.5 border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-2)] transition-colors">
-              <div className="flex-1 min-w-0">
-                <p className="text-[var(--color-text)] text-xs font-mono font-medium">
-                  {alert.symbol}
-                </p>
-                <p className="text-[var(--color-text-secondary)] text-[10px] mt-0.5">
-                  {alert.condition}
-                </p>
-                <p className="text-[var(--color-text)] text-[10px] font-mono">{alert.threshold}</p>
-              </div>
-              <span
-                className={[
-                  'text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 mt-0.5',
-                  alert.status === 'active'
-                    ? 'bg-[var(--color-up)]/15 text-[var(--color-up)]'
-                    : 'bg-[var(--color-down)]/15 text-[var(--color-down)]',
-                ].join(' ')}
-              >
-                {alert.status}
-              </span>
-            </div>
-          </li>
-        ))}
+      {loading && (
+        <div className="flex items-center justify-center h-24">
+          <span className="text-[var(--color-text-muted)] text-xs font-mono">Loading...</span>
+        </div>
+      )}
 
-        {ALERT_ITEMS.length === 0 && (
-          <li className="flex items-center justify-center h-24" aria-live="polite">
-            <p className="text-[var(--color-text-muted)] text-xs">No alerts configured</p>
-          </li>
-        )}
-      </ul>
+      {error && (
+        <div className="flex items-center justify-center h-24 px-3">
+          <span className="text-[var(--color-down)] text-xs font-mono text-center">{error}</span>
+        </div>
+      )}
+
+      {!loading && !error && sortedAlerts.length === 0 && (
+        <div className="flex items-center justify-center h-24" aria-live="polite">
+          <p className="text-[var(--color-text-muted)] text-xs">No alerts configured</p>
+        </div>
+      )}
+
+      {!loading && !error && sortedAlerts.length > 0 && (
+        <ul className="flex-1 overflow-y-auto" role="list" aria-label="Alert items">
+          {sortedAlerts.map((alert) => (
+            <li key={alert.id}>
+              <div className="group flex items-start gap-2 px-3 py-2.5 border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-2)] transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[var(--color-text)] text-xs font-mono font-medium">
+                    {alert.symbol}
+                  </p>
+                  <p className="text-[var(--color-text-secondary)] text-[10px] mt-0.5">
+                    Price {alert.condition === 'gt' ? 'above' : 'below'}
+                  </p>
+                  <p className="text-[var(--color-text)] text-[10px] font-mono">
+                    ${alert.threshold.toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                  <span
+                    className={[
+                      'text-[10px] px-1.5 py-0.5 rounded font-medium',
+                      alert.triggered
+                        ? 'bg-[var(--color-down)]/15 text-[var(--color-down)]'
+                        : 'bg-[var(--color-up)]/15 text-[var(--color-up)]',
+                    ].join(' ')}
+                  >
+                    {alert.triggered ? 'triggered' : 'active'}
+                  </span>
+                  <button
+                    onClick={() => handleDelete(alert.id)}
+                    className="opacity-0 group-hover:opacity-100 text-[var(--color-text-muted)] hover:text-[var(--color-down)] transition-all text-sm leading-none"
+                    aria-label={`Delete alert for ${alert.symbol}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

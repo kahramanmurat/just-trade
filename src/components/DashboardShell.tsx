@@ -8,6 +8,8 @@ import ChartContainer from '@/components/chart/ChartContainer'
 import { useChartStore } from '@/lib/store/chartStore'
 import { SYMBOLS } from '@/lib/api/symbols'
 import { useTickStream, getRealtimeProvider } from '@/hooks/useTickStream'
+import { useAlertEvaluator } from '@/hooks/useAlertEvaluator'
+import AlertToastContainer from '@/components/AlertToastContainer'
 import { generateOhlcv } from '@/lib/chart/generateOhlcv'
 
 // Mobile notice — shown below 768px
@@ -69,10 +71,16 @@ function TickStreamManager() {
   return null
 }
 
+function AlertEvaluatorManager() {
+  useAlertEvaluator()
+  return null
+}
+
 export default function DashboardShell() {
   return (
     <div className="flex flex-col h-screen bg-[var(--color-bg)] overflow-hidden">
       <TickStreamManager />
+      <AlertEvaluatorManager />
       <DashboardHeader />
       <MobileBanner />
       <div className="flex flex-1 min-h-0">
@@ -80,6 +88,7 @@ export default function DashboardShell() {
         <ChartContainer />
         <RightPanel />
       </div>
+      <AlertToastContainer />
     </div>
   )
 }

@@ -38,3 +38,23 @@ export type ApiError = {
   error: string
   code?: string
 }
+
+// Alert condition — "gt" (greater than) or "lt" (less than)
+export type AlertCondition = 'gt' | 'lt'
+
+// Alert item — returned by GET /api/alerts
+export type AlertResponse = {
+  id: string
+  symbol: string
+  condition: AlertCondition
+  threshold: number
+  isActive: boolean
+  triggered: boolean
+  triggeredAt: string | null
+  createdAt: string
+}
+
+// GET /api/alerts response
+export type AlertsListResponse = {
+  alerts: AlertResponse[]
+}

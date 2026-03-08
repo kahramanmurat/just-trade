@@ -1,6 +1,6 @@
 // prisma/schema.prisma
-// Sprint 1: users + subscriptions only.
-// Watchlists, alerts, layouts, drawings, indicators will be added in later sprints.
+// Users, subscriptions, watchlists, alerts.
+// Layouts, drawings, indicators will be added in later sprints.
 
 generator client {
   provider = "prisma-client-js"
@@ -42,6 +42,7 @@ model User {
 
   subscription Subscription?
   watchlists   Watchlist[]
+  alerts       Alert[]
 
   @@index([clerkId], name: "idx_users_clerk_id")
   @@map("users")
@@ -96,4 +97,27 @@ model WatchlistItem {
   @@index([watchlistId], name: "idx_watchlist_items_watchlist_id")
   @@index([symbol], name: "idx_watchlist_items_symbol")
   @@map("watchlist_items")
+}
+
+// ---------------------------------------------------------------------------
+// Alerts
+// ---------------------------------------------------------------------------
+
+model Alert {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  symbol      String    @db.VarChar(30)
+  condition   String    @db.VarChar(2) // "gt" or "lt"
+  threshold   Decimal   @db.Decimal(18, 8)
+  isActive    Boolean   @default(true) @map("is_active")
+  triggered   Boolean   @default(false)
+  triggeredAt DateTime? @map("triggered_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_alerts_user_id")
+  @@index([symbol], name: "idx_alerts_symbol")
+  @@index([isActive], name: "idx_alerts_is_active")
+  @@map("alerts")
 }
