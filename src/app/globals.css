@@ -54,4 +54,15 @@
     background-color: var(--color-bg);
     color: var(--color-text);
   }
+
+  /* Global focus-visible ring for keyboard accessibility (WCAG 2.1 AA) */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  /* Remove default focus ring for mouse users */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
 }

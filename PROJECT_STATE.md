@@ -39,6 +39,7 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 - **Indicators v1** — SMA (20), EMA (50) as chart overlays; RSI (14) in separate lower pane; add/remove/toggle from Indicators tab
 - **Realtime price updates** — mock tick simulator feeds live prices to chart (updates last candle) and watchlist; connection status in header
 - **Saved chart layouts v1** — save/load/delete named layouts storing symbol, timeframe, indicators, drawings, and panel state; default layout support
+- **AI assistant v1** — chat panel with chart/watchlist context injection, quick prompts, Anthropic Claude integration, informational disclaimer
 - **Price alerts v1** — create gt/lt price alerts, client-side evaluation against tick store, in-app toast notifications, alerts tab with create/delete/status
 - **Clerk authentication** — sign-in, sign-up, protected `/dashboard`, webhook endpoint for user sync
 - **Local dev user resolution** — `resolveUser` helper auto-creates DB user from Clerk session if webhook hasn't fired; handles P2002 race conditions
@@ -251,6 +252,39 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 - `GET /api/subscription` — returns current plan, limits, and usage counts
 - `SubscriptionManager` in DashboardShell — fetches subscription data on mount
 
+### Sprint 7 — AI Assistant v1 ✅
+
+#### Dashboard Chat Panel
+- `AiAssistant` floating panel — fixed bottom-right, 380px wide, with header, messages area, disclaimer, and input
+- Opens/closes via "AI" button in DashboardHeader (star icon)
+- `aiStore` (Zustand) — holds messages, open state, loading state
+- Clear button resets conversation history
+- Auto-scroll to latest message, auto-focus input on open
+
+#### Quick Prompts
+- Four pre-built prompts shown when chat is empty: summarize setup, explain indicators, summarize watchlist, explain timeframe
+- Clicking a quick prompt sends it immediately with full context
+
+#### Chart/Watchlist Context Injection
+- Every message includes current symbol, timeframe, and visible indicators from chartStore
+- Watchlist symbols fetched from `/api/watchlists` and included in context
+- System prompt instructs AI to reference the user's actual chart setup
+
+#### Anthropic API Integration
+- `POST /api/ai/chat` — authenticated endpoint, Zod-validated, calls Claude (claude-sonnet-4-20250514)
+- Lazy Anthropic client initialization (no build-time errors)
+- System prompt with chart context, response guidelines, and financial disclaimer rules
+- 1024 max tokens, structured error handling
+
+#### Disclaimer
+- Persistent footer in chat panel: "AI analysis is informational only — not financial advice"
+- System prompt enforces disclaimer language in AI responses
+- AI uses "suggests" / "historically associated with" rather than "you should buy/sell"
+
+#### Assistant Message Rendering
+- Simple markdown rendering: bold (**text**), bullet lists, numbered lists, line breaks
+- Styled differently from user messages (surface background vs accent)
+
 ### Sprint 3c — Realtime Price Updates v1 ✅
 
 #### Realtime Architecture
@@ -323,6 +357,9 @@ JustTrade is a TradingView-style SaaS platform for charting, watchlists, alerts,
 | `src/app/api/checkout/route.ts` | Stripe Checkout session creation |
 | `src/app/api/billing-portal/route.ts` | Stripe Customer Portal session creation |
 | `src/app/api/webhooks/stripe/route.ts` | Stripe webhook handler (signature verified) |
+| `src/app/api/ai/chat/route.ts` | AI assistant chat endpoint (Anthropic Claude) |
+| `src/lib/store/aiStore.ts` | Zustand store (AI chat messages, open state) |
+| `src/components/AiAssistant.tsx` | Floating AI chat panel with context injection |
 | `prisma/schema.prisma` | Database schema |
 
 ### Zustand Stores
@@ -356,6 +393,13 @@ plan: PlanType            — current plan (free/pro/premium)
 limits: TierLimitsResponse — max watchlists, items, indicators, alerts, layouts
 usage: object             — current counts of watchlists, items, alerts, layouts
 loaded: boolean           — whether subscription data has been fetched
+```
+
+#### aiStore
+```
+open: boolean             — AI panel visibility
+messages: AiChatMessage[] — chat history (user + assistant messages)
+loading: boolean          — whether AI request is in-flight
 ```
 
 ### Database Models
@@ -393,6 +437,7 @@ pnpm dev
 | `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signature verification |
 | `STRIPE_PRO_PRICE_ID` | Yes | Stripe Price ID for Pro plan |
 | `STRIPE_PREMIUM_PRICE_ID` | Yes | Stripe Price ID for Premium plan |
+| `ANTHROPIC_API_KEY` | Yes | Anthropic Claude API for AI assistant |
 
 ---
 

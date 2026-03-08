@@ -8,6 +8,7 @@ import { prisma } from '@/lib/db/prisma'
 import { resolveUser } from '@/lib/db/resolveUser'
 import { getUserPlan } from '@/lib/db/getUserPlan'
 import { getLimitsForPlan } from '@/lib/api/tierLimits'
+import { checkRateLimit } from '@/lib/api/rateLimit'
 import type { AlertsListResponse, AlertResponse, ApiError } from '@/lib/api/types'
 
 export async function GET() {
@@ -15,6 +16,9 @@ export async function GET() {
   if (!clerkId) {
     return NextResponse.json<ApiError>({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const rl = await checkRateLimit(clerkId, true)
+  if (rl.limited) return rl.response
 
   const user = await resolveUser(clerkId)
   if (!user) {
@@ -64,9 +68,18 @@ const createAlertSchema = z.object({
   condition: z.enum(['gt', 'lt'], {
     error: 'condition must be "gt" or "lt"',
   }),
+  // Accept both number and string to avoid JavaScript float precision loss
+  // on Decimal(18,8). Coerce to string for Prisma Decimal field.
   threshold: z
-    .number({ error: 'threshold must be a number' })
-    .positive({ error: 'threshold must be positive' }),
+    .union([
+      z.number({ error: 'threshold must be a number' }).positive({ error: 'threshold must be positive' }),
+      z.string().regex(/^\d+(\.\d+)?$/, 'threshold must be a positive decimal string'),
+    ])
+    .transform((v) => {
+      const s = String(v)
+      if (Number(s) <= 0) throw new Error('threshold must be positive')
+      return s
+    }),
 })
 
 export async function POST(request: Request) {
@@ -74,6 +87,9 @@ export async function POST(request: Request) {
   if (!clerkId) {
     return NextResponse.json<ApiError>({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const rl = await checkRateLimit(clerkId, true)
+  if (rl.limited) return rl.response
 
   const user = await resolveUser(clerkId)
   if (!user) {

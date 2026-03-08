@@ -180,7 +180,9 @@ function LayoutsDropdown() {
         visible: ind.visible,
         color: ind.color,
       })),
-      drawings: state.drawings.map((d) => ({ type: 'hline' as const, price: d.price })),
+      drawings: state.drawings
+        .filter((d): d is Extract<typeof d, { type: 'hline' }> => d.type === 'hline')
+        .map((d) => ({ type: 'hline' as const, price: d.price })),
       rightPanelTab: state.rightPanelTab,
       rightPanelOpen: state.rightPanelOpen,
     }
@@ -223,7 +225,7 @@ function LayoutsDropdown() {
     store.setDrawings(
       layout.config.drawings
         .filter((d) => d.type === 'hline')
-        .map((d) => ({ price: d.price }))
+        .map((d) => ({ type: 'hline' as const, price: d.price }))
     )
     store.setRightPanelTab(layout.config.rightPanelTab as RightPanelTab)
     store.setRightPanelOpen(layout.config.rightPanelOpen)

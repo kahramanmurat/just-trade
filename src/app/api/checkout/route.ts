@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { stripe } from '@/lib/stripe'
 import { prisma } from '@/lib/db/prisma'
 import { resolveUser } from '@/lib/db/resolveUser'
+import { checkRateLimit } from '@/lib/api/rateLimit'
 import type { ApiError } from '@/lib/api/types'
 
 const checkoutSchema = z.object({
@@ -24,6 +25,10 @@ export async function POST(request: Request) {
   if (!clerkId) {
     return NextResponse.json<ApiError>({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  // Rate limit — 100 req/min per authenticated user
+  const rl = await checkRateLimit(clerkId, true)
+  if (rl.limited) return rl.response
 
   const user = await resolveUser(clerkId)
   if (!user) {
@@ -61,8 +66,9 @@ export async function POST(request: Request) {
 
     let stripeCustomerId = sub?.stripeCustomerId ?? ''
 
-    // If the customer ID is a placeholder, create a real Stripe customer
-    if (stripeCustomerId.startsWith('pending:')) {
+    // Create a real Stripe customer if no subscription exists, customer ID is
+    // empty, or it is still a pending placeholder from the Clerk webhook.
+    if (!sub || !stripeCustomerId || stripeCustomerId.startsWith('pending:')) {
       const dbUser = await prisma.user.findUnique({
         where: { id: user.id },
         select: { email: true, name: true },
@@ -76,9 +82,16 @@ export async function POST(request: Request) {
 
       stripeCustomerId = customer.id
 
-      await prisma.subscription.update({
+      // Upsert subscription row to handle the case where no row exists yet
+      await prisma.subscription.upsert({
         where: { userId: user.id },
-        data: { stripeCustomerId: customer.id },
+        update: { stripeCustomerId: customer.id },
+        create: {
+          userId: user.id,
+          stripeCustomerId: customer.id,
+          plan: 'free',
+          status: 'active',
+        },
       })
     }
 

@@ -6,6 +6,7 @@ import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { fetchOhlcv } from '@/lib/api/ohlcv'
+import { checkRateLimit } from '@/lib/api/rateLimit'
 import type { OhlcvResponse, ApiError } from '@/lib/api/types'
 
 const VALID_TIMEFRAMES = ['1m', '5m', '15m', '1h', '4h', '1D', '1W', '1M'] as const
@@ -35,6 +36,10 @@ export async function GET(request: Request) {
       { status: 401 }
     )
   }
+
+  // Rate limit — 100 req/min per authenticated user
+  const rl = await checkRateLimit(userId, true)
+  if (rl.limited) return rl.response
 
   // Parse and validate query params
   const { searchParams } = new URL(request.url)

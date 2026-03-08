@@ -106,6 +106,36 @@ export default function SymbolSearchModal({ open, onClose }: SymbolSearchModalPr
     active?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex])
 
+  // Focus trap — keep Tab/Shift+Tab within the modal
+  const modalRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const modal = modalRef.current
+    if (!modal) return
+
+    function handleTab(e: KeyboardEvent) {
+      if (e.key !== 'Tab') return
+      const focusable = modal!.querySelectorAll<HTMLElement>(
+        'input, button, [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusable.length === 0) return
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleTab)
+    return () => document.removeEventListener('keydown', handleTab)
+  }, [open])
+
   // Clamp activeIndex when results change
   useEffect(() => {
     setActiveIndex((prev) => Math.min(prev, Math.max(flatResults.length - 1, 0)))
@@ -127,6 +157,7 @@ export default function SymbolSearchModal({ open, onClose }: SymbolSearchModalPr
 
       {/* Modal */}
       <div
+        ref={modalRef}
         className="fixed inset-0 z-[201] flex items-start justify-center pt-[15vh]"
         role="dialog"
         aria-modal="true"

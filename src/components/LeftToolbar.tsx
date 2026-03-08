@@ -31,8 +31,9 @@ const TOOLS: ToolConfig[] = [
   },
   {
     tool: 'trendline',
-    label: 'Trend Line — coming soon',
+    label: 'Trend Line',
     shortcut: 'Alt+T',
+    implemented: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
         <path d="M2 13L13 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -61,8 +62,9 @@ const TOOLS: ToolConfig[] = [
   },
   {
     tool: 'fibonacci',
-    label: 'Fibonacci — coming soon',
+    label: 'Fibonacci Retracement',
     shortcut: 'Alt+F',
+    implemented: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
         <path
@@ -78,8 +80,9 @@ const TOOLS: ToolConfig[] = [
   },
   {
     tool: 'rectangle',
-    label: 'Rectangle — coming soon',
+    label: 'Rectangle',
     shortcut: 'Alt+R',
+    implemented: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
         <rect
@@ -96,8 +99,9 @@ const TOOLS: ToolConfig[] = [
   },
   {
     tool: 'text',
-    label: 'Text Label — coming soon',
+    label: 'Text Label',
     shortcut: 'Alt+L',
+    implemented: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
         <path
@@ -112,8 +116,9 @@ const TOOLS: ToolConfig[] = [
   },
   {
     tool: 'magnet',
-    label: 'Snap to OHLC — coming soon',
+    label: 'Snap to OHLC',
     shortcut: 'Alt+M',
+    implemented: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
         <path
@@ -146,7 +151,7 @@ const TOOLS: ToolConfig[] = [
 ]
 
 export default function LeftToolbar() {
-  const { activeTool, setActiveTool } = useChartStore()
+  const { activeTool, setActiveTool, magnetOn, toggleMagnet } = useChartStore()
   const [hovered, setHovered] = useState<DrawingTool | null>(null)
 
   return (
@@ -154,25 +159,25 @@ export default function LeftToolbar() {
       className="hidden md:flex flex-col items-center w-10 shrink-0 bg-[var(--color-surface)] border-r border-[var(--color-border)] py-1.5 gap-px"
       aria-label="Drawing tools"
     >
-      {TOOLS.map(({ tool, label, shortcut, icon, implemented }) => {
-        const disabled = !implemented
+      {TOOLS.map(({ tool, label, shortcut, icon }) => {
+        // Magnet is a toggle, not a drawing mode
+        const isMagnet = tool === 'magnet'
+        const isActive = isMagnet ? magnetOn : activeTool === tool
+
         return (
           <div key={tool} className="relative w-full flex justify-center">
             <button
-              onClick={() => !disabled && setActiveTool(tool)}
+              onClick={() => isMagnet ? toggleMagnet() : setActiveTool(tool)}
               onMouseEnter={() => setHovered(tool)}
               onMouseLeave={() => setHovered(null)}
               className={[
                 'w-8 h-8 flex items-center justify-center rounded transition-colors',
-                disabled
-                  ? 'text-[var(--color-text-muted)] opacity-40 cursor-not-allowed'
-                  : activeTool === tool
-                    ? 'bg-[var(--color-accent)] text-white'
-                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]',
+                isActive
+                  ? 'bg-[var(--color-accent)] text-white'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]',
               ].join(' ')}
-              aria-label={`${label} — ${shortcut}`}
-              aria-pressed={!disabled && activeTool === tool}
-              aria-disabled={disabled}
+              aria-label={`${label}${magnetOn && isMagnet ? ' (ON)' : ''} — ${shortcut}`}
+              aria-pressed={isActive}
             >
               {icon}
             </button>

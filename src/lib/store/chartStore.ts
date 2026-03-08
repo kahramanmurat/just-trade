@@ -26,9 +26,12 @@ export type IndicatorConfig = {
   color: string
 }
 
-export type HLineDrawing = {
-  price: number
-}
+export type Drawing =
+  | { type: 'hline'; price: number }
+  | { type: 'trendline'; time1: number; price1: number; time2: number; price2: number }
+  | { type: 'fibonacci'; price1: number; price2: number }
+  | { type: 'rectangle'; time1: number; price1: number; time2: number; price2: number }
+  | { type: 'text'; time: number; price: number; label: string }
 
 const DEFAULT_INDICATORS: IndicatorConfig[] = [
   { id: 'sma-20', type: 'SMA', period: 20, visible: true, color: '#2962FF' },
@@ -43,7 +46,8 @@ interface ChartStore {
   rightPanelTab: RightPanelTab
   rightPanelOpen: boolean
   indicators: IndicatorConfig[]
-  drawings: HLineDrawing[]
+  drawings: Drawing[]
+  magnetOn: boolean
   setSymbol: (symbol: string) => void
   setTimeframe: (timeframe: Timeframe) => void
   setActiveTool: (tool: DrawingTool) => void
@@ -54,9 +58,11 @@ interface ChartStore {
   removeIndicator: (id: string) => void
   addIndicator: (type: IndicatorType) => void
   setIndicators: (indicators: IndicatorConfig[]) => void
-  addDrawing: (drawing: HLineDrawing) => void
+  addDrawing: (drawing: Drawing) => void
+  removeDrawing: (index: number) => void
   clearDrawings: () => void
-  setDrawings: (drawings: HLineDrawing[]) => void
+  setDrawings: (drawings: Drawing[]) => void
+  toggleMagnet: () => void
 }
 
 let nextIndicatorId = 1
@@ -79,6 +85,7 @@ export const useChartStore = create<ChartStore>((set) => ({
   rightPanelOpen: true,
   indicators: DEFAULT_INDICATORS,
   drawings: [],
+  magnetOn: false,
   setSymbol: (symbol) => set({ symbol }),
   setTimeframe: (timeframe) => set({ timeframe }),
   setActiveTool: (activeTool) => set({ activeTool }),
@@ -114,6 +121,11 @@ export const useChartStore = create<ChartStore>((set) => ({
   setIndicators: (indicators) => set({ indicators }),
   addDrawing: (drawing) =>
     set((state) => ({ drawings: [...state.drawings, drawing] })),
+  removeDrawing: (index) =>
+    set((state) => ({
+      drawings: state.drawings.filter((_, i) => i !== index),
+    })),
   clearDrawings: () => set({ drawings: [] }),
   setDrawings: (drawings) => set({ drawings }),
+  toggleMagnet: () => set((state) => ({ magnetOn: !state.magnetOn })),
 }))
