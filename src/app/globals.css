@@ -28,6 +28,16 @@
   --color-border-subtle: #1E2030;
 }
 
+@layer utilities {
+  /* Chart area background grid — used by ChartAreaPlaceholder */
+  .chart-grid {
+    background-image:
+      linear-gradient(var(--color-border-subtle) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px);
+    background-size: 80px 60px;
+  }
+}
+
 @layer base {
   *,
   *::before,

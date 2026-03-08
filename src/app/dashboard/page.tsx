@@ -1,17 +1,17 @@
-// src/app/dashboard/page.tsx
-// Protected by clerkMiddleware — unauthenticated users are redirected to /sign-in.
-// Sprint 1 placeholder: full dashboard shell implemented in Epic 2 (DASH).
+// Dashboard — protected by clerkMiddleware.
+// Renders the full application shell (header, left toolbar, chart area, right panel).
 
 import { auth } from '@clerk/nextjs/server'
+import { redirect } from 'next/navigation'
+import DashboardShell from '@/components/DashboardShell'
+
+export const metadata = {
+  title: 'Dashboard — JustTrade',
+}
 
 export default async function DashboardPage() {
   const { userId } = await auth()
+  if (!userId) redirect('/sign-in')
 
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[#0F1117]">
-      <p className="font-mono text-[#E0E3EB]">
-        Dashboard — authenticated as {userId}
-      </p>
-    </main>
-  )
+  return <DashboardShell />
 }
